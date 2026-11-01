@@ -1,39 +1,35 @@
 # Chess Coach
 
-Reviews my chess.com games and explains why each mistake was a mistake.
+A desktop app that reviews my chess.com games and explains why each mistake
+was a mistake.
 
-A FastAPI backend (`src/chess_coach`) imports games and runs Stockfish reviews;
-a Next.js app (`web/`) shows them on a board.
+`app/` is a Tauri app. The Rust side (`app/src-tauri/src`) imports games
+from chess.com, stores them in SQLite, and reviews them with Stockfish; the
+webview (`app/src`) is React and shows the review on a board.
 
 ## Running
 
-Needs `stockfish` on PATH (`brew install stockfish`).
+Needs `stockfish` (`brew install stockfish`), Rust, and Node.
 
 ```bash
-uv run chess_coach                   # backend on 127.0.0.1:8000
-cd web && npm install && npm run dev  # app on localhost:3000; /api proxies to the backend
+cd app
+npm install
+npm run tauri dev      # development, with reload
+npm run tauri build    # a .app bundle under src-tauri/target/release/bundle
 ```
 
-The board is [chessground](https://github.com/lichess-org/chessground), which is
-GPL-3.0; distributing a build of `web/` puts it under the GPL.
+On first launch the app asks for a chess.com username, once. After that it
+pulls new games each time it starts. Data lives in
+`~/Library/Application Support/dev.alvinkuruvilla.chesscoach/`.
 
-## Development
-
-This project uses [uv](https://docs.astral.sh/uv/) for dependencies and
-tooling.
+## Checks
 
 ```bash
-uv sync                    # create .venv and install deps + dev tools
-uv run pytest              # run tests
-uv run ruff check .        # lint
-uv run ruff format .       # format
-uv run mypy src            # type-check (strict)
-uv run pip-audit           # scan dependencies for CVEs
+cd app/src-tauri
+cargo test             # engine tests need stockfish; without it they return early
+cargo clippy --all-targets
+cd .. && npx tsc --noEmit
 ```
 
-Install the git hooks once:
-
-```bash
-uv run pre-commit install
-```
-
+The board is [chessground](https://github.com/lichess-org/chessground), which
+is GPL-3.0; distributing a build puts it under the GPL.

@@ -7,17 +7,30 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # macOS rather than Linux: Tauri on Linux needs the WebKitGTK development
+    # packages, and macOS is the platform the app is built for.
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
         with:
-          enable-cache: true
-      - run: uv python install 3.13
-      - run: uv sync
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy src
-
-      - run: uv run pytest
-      - run: uv run pip-audit
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      # The engine tests return early without Stockfish and would pass
+      # without testing anything, so install it.
+      - run: brew install stockfish
+      - run: npm ci
+      - run: npx tsc --noEmit
+      # `tauri build` would also do this; the Rust checks need `dist/` to
+      # exist because `generate_context!` embeds it.
+      - run: npm run build
+      - run: cargo fmt --check
+        working-directory: app/src-tauri
+      - run: cargo clippy --all-targets -- -D warnings
+        working-directory: app/src-tauri
+      - run: cargo test
+        working-directory: app/src-tauri

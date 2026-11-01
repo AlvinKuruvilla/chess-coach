@@ -273,25 +273,24 @@ Keep this out of git — `tmp/` is already ignored.
 
 ## Found 2026-11-01
 
-- **MCP server deleted, docs not yet updated.** Removed at Alvin's call until
-  it earns a place in the app; last version is in `5fecbc9`. README.md,
-  PROBLEM.md (goals 1-2, the protocol table), ADR 0001, and the "start here"
-  list above still describe the app as MCP-first.
-- **`analyse_position` in `analysis.py` has no caller** now the MCP tool is
-  gone. Kept because the board view will want single-position evaluation.
-- **Starlette deprecates `httpx` in `TestClient`** in favour of `httpx2`
-  (`StarletteDeprecationWarning` on every test run). httpx is also a runtime
-  dependency for the chess.com client, so the swap is for both.
-- **Reviews run inside one HTTP request.** The 107-ply game took 32s through
-  the Next proxy, past its 30s default; `proxyTimeout` is raised to 5 minutes
-  in `web/next.config.ts` as a stopgap. The fix is a review job: start it,
-  poll or stream progress (`on_progress` already exists), fetch the result.
-- **No way to read a stored review without POSTing.** The game page shows a
-  "Review" button even when the review is cached; clicking it returns at once,
-  but a `GET /games/{id}/review` would let the page show it on load.
-- **Frontend types are hand-copied** from the backend's pydantic models
-  (`web/src/lib/api.ts`). Generate from `/openapi.json` once shapes settle.
+- **Docs still describe the old architecture.** The app is now a Tauri
+  desktop app with a Rust backend; the MCP server (last in `5fecbc9`) and the
+  Python backend (last in `28a28cd`) are gone. PROBLEM.md (goals 1-2, the
+  protocol table), ADR 0001, `docs/async-serve-loop.md`, and the "start here"
+  list above still describe the MCP-first design.
+- **Rust terminal detection is narrower than python-chess's.** shakmaty's
+  `outcome` has no fivefold-repetition or 75-move rule, so those positions are
+  searched instead of scored 0 directly (`terminal_cp` in `analysis.rs`).
+- **Engine tests pass silently without Stockfish.** They return early rather
+  than being marked ignored; CI installs Stockfish so they run there.
+- **Single-position evaluation was dropped in the port.** `analyse_position`
+  had no caller; the board view will want it back for exploring a line.
+- **Changing the chess.com account is not supported.** The username is set
+  once on first run; the `archives` table is not keyed by user, so a second
+  account would skip months the first one fetched.
+- **Frontend types are hand-copied** from the Rust serde types
+  (`app/src/api.ts`). `ts-rs` or `tauri-specta` could generate them.
 - **chessground is GPL-3.0**, chosen knowingly; the repo LICENSE is MIT. Fine
   while private; decide before publishing a build.
-- **Port 3000 is taken** on this machine by another app; the dev server was
-  run on 3100 for checking.
+- **`React.StrictMode` runs the launch sync twice in development.** Harmless
+  (imports are idempotent) but makes two requests to chess.com.
