@@ -17,6 +17,7 @@ way; the rest are positional and come back empty. See
 from __future__ import annotations
 
 import io
+import shutil
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
@@ -258,6 +259,22 @@ async def review_game(
         return mistakes, dict(game.headers)
     finally:
         await engine.quit()
+
+
+def find_stockfish() -> str:
+    """Path to the Stockfish binary, or an error that says how to get one.
+
+    Called at startup by both the backend and the MCP server so a missing
+    binary fails there with a sentence, not inside the first review as an
+    opaque `FileNotFoundError` from a subprocess launch.
+    """
+    found = shutil.which("stockfish")
+    if found is None:
+        raise RuntimeError(
+            "stockfish was not found on PATH; install it (brew install stockfish) "
+            "or put the binary somewhere on PATH"
+        )
+    return found
 
 
 def _variation_san(board: chess.Board, pv: list[chess.Move]) -> list[str]:

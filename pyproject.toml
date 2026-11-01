@@ -15,11 +15,15 @@ authors = [
 ]
 dependencies = [
     "chess>=1.11.2",
+    "fastapi>=0.162.0",
+    "httpx>=0.28.1",
     "mcp>=2.1.1",
+    "uvicorn>=0.52.4",
 ]
 
 [project.scripts]
 chess_coach = "chess_coach.main:main"
+chess_coach_backend = "chess_coach.backend:main"
 
 [dependency-groups]
 dev = [

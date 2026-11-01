@@ -15,7 +15,7 @@ async def test_both_tools_are_registered_with_a_derived_schema() -> None:
     assert set(tools) == {"review_game", "analyse_position"}
 
     # The Context parameter is injected by the SDK and must not appear in the
-    # schema the client sees; only `pgn` is the caller's to supply.
+    # schema the client sees; only `game_id` is the caller's to supply.
     review = tools["review_game"].input_schema
-    assert set(review["properties"]) == {"pgn", "depth", "threshold_cp"}
-    assert review["required"] == ["pgn"]
+    assert set(review["properties"]) == {"game_id", "depth", "threshold_cp"}
+    assert review["required"] == ["game_id"]
