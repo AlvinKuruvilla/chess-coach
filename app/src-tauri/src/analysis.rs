@@ -89,6 +89,9 @@ pub struct Mistake {
     pub played: String,
     /// Empty when the engine had no move to suggest.
     pub best: String,
+    /// The engine's line from the position before the mistake, starting with
+    /// `best`: what should have happened instead.
+    pub best_line: Vec<String>,
     pub cp_loss: i32,
     pub fen_before: String,
     pub refutation: Vec<String>,
@@ -121,6 +124,12 @@ pub struct Review {
     pub threshold_cp: i32,
     pub mistake_count: usize,
     pub mistakes: Vec<Mistake>,
+    /// The evaluation of every position in the game, in centipawns from
+    /// White's point of view: index i is the position after i plies, so
+    /// there is one more entry than there are moves. `MATE_CP` (10000) or
+    /// its negation means a forced mate; values are not clamped, so the
+    /// reader decides how to draw them.
+    pub evaluations: Vec<i32>,
 }
 
 /// Play the refutation forward and diff the board.
@@ -407,6 +416,7 @@ pub async fn review_game(
             move_number: positions[ply].fullmoves().get(),
             side: mover.into(),
             played: san(&positions[ply], played),
+            best_line: variation_san(&positions[ply], &lines[ply]),
             best: lines[ply]
                 .first()
                 .map(|best| san(&positions[ply], best))
@@ -427,6 +437,7 @@ pub async fn review_game(
         threshold_cp,
         mistake_count: mistakes.len(),
         mistakes,
+        evaluations,
     })
 }
 
@@ -579,6 +590,11 @@ mod tests {
             assert_eq!(blunder.ply, 5);
             // The winning move itself must not be flagged as a White mistake.
             assert!(review.mistakes.iter().all(|m| m.played != "Qxf7#"));
+            // One evaluation per position, start included, ending on the
+            // delivered mate scored for White.
+            assert_eq!(review.evaluations.len(), 8);
+            assert_eq!(review.evaluations.last(), Some(&MATE_CP));
+            assert_eq!(blunder.best_line.first(), Some(&blunder.best));
         }
 
         #[tokio::test]

@@ -49,6 +49,7 @@ export interface Mistake {
   side: Side;
   played: string;
   best: string;
+  best_line: string[];
   cp_loss: number;
   fen_before: string;
   refutation: string[];
@@ -69,6 +70,8 @@ export interface Review {
   threshold_cp: number;
   mistake_count: number;
   mistakes: Mistake[];
+  /** Centipawns from White's side, one per position (moves + 1). ±10000 is mate. */
+  evaluations: number[];
 }
 
 export interface Progress {

@@ -390,7 +390,8 @@ button:disabled {
 }
 
 .stage-inner {
-  width: min(100cqw, 100cqh - 7.5rem);
+  /* 12rem: two player strips, the caption and the controls. */
+  width: min(100cqw, 100cqh - 12rem);
   display: grid;
   gap: 0.6rem;
 }
@@ -510,8 +511,8 @@ cg-board square.check {
    the review written into them. */
 
 .notes {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   border-left: 1px solid var(--rule);
   padding-left: clamp(20px, 2.5vw, 32px);
@@ -609,6 +610,8 @@ cg-board square.check {
 }
 
 .moves {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0.75rem 0 2rem;
   scrollbar-width: thin;
@@ -654,22 +657,34 @@ cg-board square.check {
 
 /* An annotation, set into the move list the way a chess book does it. */
 .note {
-  display: block;
-  width: 100%;
   margin: 0.4rem 0 0.7rem 2.4rem;
-  width: calc(100% - 2.4rem);
-  padding: 0.7rem 0.85rem;
-  border: none;
   border-radius: 6px;
   background: var(--mistake-wash);
-  text-align: left;
-  line-height: 1.45;
   animation: rise 360ms var(--ease-out) both;
   transition: box-shadow 150ms var(--ease-out);
 }
 
 .note.selected {
   box-shadow: inset 0 0 0 1.5px var(--mistake);
+}
+
+.note.theirs {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.note.theirs.selected {
+  box-shadow: inset 0 0 0 1.5px var(--muted);
+}
+
+.note-jump {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 0.7rem 0.85rem 0.35rem;
+  line-height: 1.45;
 }
 
 .note .lead {
@@ -698,13 +713,173 @@ cg-board square.check {
   font-weight: 600;
 }
 
-.note .line {
+.note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 1rem;
+  padding: 0 0.85rem 0.6rem;
+}
+
+.note-actions button {
+  border: none;
+  background: none;
+  padding: 0.15rem 0;
+  font-size: 0.8rem;
+  font-weight: 500;
   color: var(--muted);
+  transition: color 120ms var(--ease-out);
+}
+
+.note-actions button:hover,
+.note-actions button.active {
+  color: var(--ink);
+}
+
+/* Evaluation bar: your share fills from the bottom, in the light square
+   colour, against the dark square colour. */
+
+.board-frame {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.eval-bar {
+  position: relative;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--ink);
+}
+
+.eval-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--paper-raised);
+  transform-origin: bottom;
+  transition: transform 300ms var(--ease-out);
+}
+
+.eval-bar.unknown {
+  opacity: 0.25;
+}
+
+.board-frame.in-line .board {
+  box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--better);
+}
+
+/* The sentence under the board. Fixed height so stepping through moves
+   never shifts the controls under the pointer. */
+
+.caption {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.6rem;
+  margin-top: 0.2rem;
+}
+
+.caption-text {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.caption strong {
   font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.05rem;
+  white-space: pre;
+}
+
+.caption span {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.caption.warn strong {
+  color: var(--mistake);
+}
+
+.caption.line strong {
+  color: var(--better);
   font-style: italic;
 }
 
-.note.theirs {
-  background: none;
-  border: 1px dashed var(--rule);
+.controls .play {
+  width: 3rem;
+  color: var(--ink);
+  background: var(--hover);
+  border-radius: 999px;
+}
+
+/* Game graph */
+
+.graph-wrap {
+  position: relative;
+  margin-top: 1rem;
+}
+
+.eval-graph {
+  display: block;
+  width: 100%;
+  height: 72px;
+  cursor: pointer;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.graph-ahead {
+  fill: color-mix(in oklch, var(--better) 6%, transparent);
+}
+
+.graph-area {
+  fill: color-mix(in oklch, var(--ink) 9%, transparent);
+}
+
+.graph-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.graph-mid {
+  stroke: var(--rule);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.graph-now {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.graph-mistake {
+  stroke: var(--mistake);
+  stroke-width: 3;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.graph-mistake.theirs {
+  stroke: var(--faint);
+}
+
+.graph-legend {
+  position: absolute;
+  inset: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+
+.page-error {
+  padding: 0 32px;
 }
