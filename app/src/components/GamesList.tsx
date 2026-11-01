@@ -1,8 +1,23 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { api, outcome, type GamePage, type GameSummary } from "../api";
 
-export function GamesList({ onOpen }: { onOpen: (id: number) => void }) {
+const RESULT_LABEL = { win: "Won", loss: "Lost", draw: "Drawn" } as const;
+
+function monthOf(game: GameSummary): string {
+  return new Date(game.end_time * 1000).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export function GamesList({
+  account,
+  onOpen,
+}: {
+  account: string;
+  onOpen: (id: number) => void;
+}) {
   const [games, setGames] = useState<GameSummary[] | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -17,19 +32,19 @@ export function GamesList({ onOpen }: { onOpen: (id: number) => void }) {
   // an ordinary launch this is two small requests.
   const sync = useCallback(async () => {
     setSyncing(true);
-    setStatus("Checking chess.com for new games…");
+    setStatus("Checking for new games…");
     try {
       const result = await api.syncGames();
       setStatus(
         result.games_new === 0
-          ? "Up to date."
-          : `${result.games_new} new game${result.games_new === 1 ? "" : "s"}.`,
+          ? "Up to date"
+          : `${result.games_new} new game${result.games_new === 1 ? "" : "s"}`,
       );
       show(await api.games());
     } catch (err) {
       // Offline is the usual cause; the stored games are still shown.
       setStatus(null);
-      setError(`Could not reach chess.com: ${(err as Error).message}`);
+      setError(`Could not reach chess.com. ${(err as Error).message}`);
     } finally {
       setSyncing(false);
     }
@@ -44,58 +59,81 @@ export function GamesList({ onOpen }: { onOpen: (id: number) => void }) {
     void sync();
   }, [sync]);
 
+  // Games arrive newest first, so grouping in order keeps months in order.
+  const months = useMemo(() => {
+    const groups: { month: string; games: GameSummary[] }[] = [];
+    for (const game of games ?? []) {
+      const month = monthOf(game);
+      let last = groups[groups.length - 1];
+      if (last?.month !== month) {
+        last = { month, games: [] };
+        groups.push(last);
+      }
+      last.games.push(game);
+    }
+    return groups;
+  }, [games]);
+
   return (
-    <main className="page">
-      <header className="masthead">
-        <h1>Games</h1>
-        <button onClick={() => void sync()} disabled={syncing}>
-          {syncing ? "Syncing…" : "Refresh"}
-        </button>
+    <main className="library">
+      <header className="library-head">
+        <h1>{account}</h1>
+        <div className="sync">
+          {status && <span>{status}</span>}
+          <button className="quiet" onClick={() => void sync()} disabled={syncing}>
+            Refresh
+          </button>
+        </div>
       </header>
 
-      {status && <p className="note">{status}</p>}
       {error && <p className="error">{error}</p>}
-
-      {games === null && !error && <p className="note">Loading…</p>}
       {games?.length === 0 && (
-        <p className="note">No finished games on chess.com yet.</p>
+        <p className="empty">
+          No finished games yet. Play one on chess.com and it will appear here
+          the next time the app starts.
+        </p>
       )}
 
-      {games && games.length > 0 && (
-        <table className="games">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Opponent</th>
-              <th>Colour</th>
-              <th>Result</th>
-              <th>Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            {games.map((game) => {
-              const opponentIsBlack = game.you !== "black";
-              const opponent = opponentIsBlack ? game.black : game.white;
-              const rating = opponentIsBlack ? game.black_rating : game.white_rating;
-              const result = outcome(game);
-              return (
-                <tr key={game.id} className="clickable" onClick={() => onOpen(game.id)}>
-                  <td>{new Date(game.end_time * 1000).toLocaleDateString()}</td>
-                  <td>
-                    {opponent} <span className="dim">({rating})</span>
-                  </td>
-                  <td>{game.you ?? "?"}</td>
-                  <td className={`result ${result}`}>{result}</td>
-                  <td className="dim">
-                    {game.time_class}
-                    {game.rated ? "" : ", unrated"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
+      {months.map(({ month, games }, groupIndex) => (
+        <section className="month" key={month}>
+          <h2>{month}</h2>
+          {games.map((game, index) => {
+            const opponentIsBlack = game.you !== "black";
+            const result = outcome(game);
+            return (
+              <button
+                key={game.id}
+                className="game-row"
+                onClick={() => onOpen(game.id)}
+                // Stagger the first screenful on load; later rows need none.
+                style={{ animationDelay: `${Math.min(groupIndex * 4 + index, 12) * 30}ms` }}
+              >
+                <span className="date">
+                  {new Date(game.end_time * 1000).toLocaleDateString(undefined, {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+                <span
+                  className={`side ${game.you ?? "white"}`}
+                  title={`You played ${game.you ?? "?"}`}
+                />
+                <span className="opponent">
+                  {opponentIsBlack ? game.black : game.white}
+                  <span className="rating">
+                    {opponentIsBlack ? game.black_rating : game.white_rating}
+                  </span>
+                </span>
+                <span className="kind">
+                  {game.time_class}
+                  {game.rated ? "" : " · unrated"}
+                </span>
+                <span className={`result ${result}`}>{RESULT_LABEL[result]}</span>
+              </button>
+            );
+          })}
+        </section>
+      ))}
     </main>
   );
 }

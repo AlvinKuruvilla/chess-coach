@@ -27,25 +27,31 @@ export function Welcome({ onConnected }: { onConnected: () => void }) {
 
   return (
     <main className="welcome">
-      <h1>Chess Coach</h1>
-      <p className="dim">
-        Reviews your finished chess.com games and shows why each mistake was a
-        mistake. Your games are pulled from chess.com's public archive; nothing
-        is sent anywhere else.
+      <h1>
+        Every mistake,
+        <br />
+        <em>explained.</em>
+      </h1>
+      <p>
+        Chess Coach reads your finished games from chess.com, finds the moves
+        that cost you, and shows what each one allowed.
       </p>
       <form onSubmit={connect}>
-        <label htmlFor="username">chess.com username</label>
-        <input
-          id="username"
-          autoFocus
-          autoComplete="off"
-          spellCheck={false}
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          disabled={busy}
-        />
-        <button type="submit" disabled={busy || !username.trim()}>
-          {busy ? "Fetching your games…" : "Continue"}
+        <div className="field">
+          <label htmlFor="username">Your chess.com username</label>
+          <input
+            id="username"
+            autoFocus
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            disabled={busy}
+          />
+        </div>
+        <button className="button" type="submit" disabled={busy || !username.trim()}>
+          {busy ? "Fetching games…" : "Continue"}
         </button>
       </form>
       {error && <p className="error">{error}</p>}

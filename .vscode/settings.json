@@ -1,0 +1,5 @@
+{
+  // The crate is at app/src-tauri, two levels down; rust-analyzer only
+  // discovers Cargo.toml in the opened folder and its direct children.
+  "rust-analyzer.linkedProjects": ["app/src-tauri/Cargo.toml"]
+}

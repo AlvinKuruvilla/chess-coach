@@ -32,7 +32,7 @@ export default function App() {
   return (
     <>
       <div hidden={openGame !== null}>
-        <GamesList onOpen={setOpenGame} />
+        <GamesList account={account} onOpen={setOpenGame} />
       </div>
       {openGame !== null && (
         <GameView key={openGame} id={openGame} onBack={() => setOpenGame(null)} />
