@@ -613,7 +613,7 @@ cg-board square.check {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0.75rem 0 2rem;
+  padding: 0 0 2rem;
   scrollbar-width: thin;
 }
 
@@ -882,4 +882,67 @@ cg-board square.check {
 
 .page-error {
   padding: 0 32px;
+}
+
+/* Move list header: who plays each column. Sticky so it stays visible
+   while scrolling a long game. */
+
+.move-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 2.4rem 1fr 1fr;
+  align-items: center;
+  padding: 0.35rem 0 0.5rem;
+  margin-bottom: 0.25rem;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.move-head > span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding-left: 0.5rem;
+}
+
+.move-head .who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.move-head .mine {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.move-head .side {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+}
+
+.you-tag {
+  flex: none;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.move.theirs {
+  color: var(--muted);
+}
+
+.move.mine {
+  color: var(--ink);
 }

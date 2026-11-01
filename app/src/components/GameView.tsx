@@ -365,7 +365,11 @@ export function GameView({ id, onBack }: { id: number; onBack: () => void }) {
       <button
         key={index}
         ref={isCurrent ? currentMove : undefined}
-        className={`move${isCurrent ? " current" : ""}`}
+        // Even indices are White's moves. Your moves are set in full ink and
+        // your opponent's muted, so the column you played reads at a glance.
+        className={`move${isCurrent ? " current" : ""}${
+          (index % 2 === 0 ? "white" : "black") === game.you ? " mine" : " theirs"
+        }`}
         onClick={() => seek(index + 1)}
       >
         {moves[index].san}
@@ -575,6 +579,16 @@ export function GameView({ id, onBack }: { id: number; onBack: () => void }) {
           )}
 
           <div className="moves" aria-label="Moves">
+            <div className="move-head">
+              <span />
+              {(["white", "black"] as const).map((side) => (
+                <span key={side} className={side === game.you ? "mine" : ""}>
+                  <span className={`side ${side}`} aria-hidden="true" />
+                  <span className="who">{name(side)}</span>
+                  {side === game.you && <span className="you-tag">you</span>}
+                </span>
+              ))}
+            </div>
             {Array.from({ length: Math.ceil(moves.length / 2) }, (_, row) => {
               const white = 2 * row;
               const black = white + 1;
