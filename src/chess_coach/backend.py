@@ -1,10 +1,8 @@
 """The HTTP backend: imported games and their reviews.
 
-This is the application in docs/0001. It owns storage and the chess.com
-import, and its OpenAPI schema is what the MCP server's `search`/`execute`
-tools will read. The MCP server's dedicated `review_game` tool does not go
-through HTTP; it calls `review_stored_game` below, the same function the
-review route calls, so the two ways to start a review cannot drift.
+It owns storage and the chess.com import. Anything else that starts a review
+should call `review_stored_game`, the function behind the review route, so
+reviews have one implementation and one cache.
 
 Games are addressed by the trailing integer of their chess.com URL
 (`.../game/daily/1000000001` is game `1000000001`). The URL itself is the

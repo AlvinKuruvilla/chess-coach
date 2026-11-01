@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "chess-coach"
 version = "0.1.0"
-description = "An MCP server that explains why a chess move was bad, built against MCP revision 2026-07-28."
+description = "Explains why a chess move was bad, for games I have already played."
 readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"
@@ -17,13 +17,11 @@ dependencies = [
     "chess>=1.11.2",
     "fastapi>=0.162.0",
     "httpx>=0.28.1",
-    "mcp>=2.1.1",
     "uvicorn>=0.52.4",
 ]
 
 [project.scripts]
-chess_coach = "chess_coach.main:main"
-chess_coach_backend = "chess_coach.backend:main"
+chess_coach = "chess_coach.backend:main"
 
 [dependency-groups]
 dev = [

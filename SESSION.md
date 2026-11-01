@@ -270,3 +270,15 @@ Keep this out of git — `tmp/` is already ignored.
   unchecked; it was answered 2026-08-18 (bit-exact).
 - "50 of my own games" and the chess.com accuracy baseline are stale; the corpus is the
   Lichess band sample.
+
+## Found 2026-11-01
+
+- **MCP server deleted, docs not yet updated.** Removed at Alvin's call until
+  it earns a place in the app; last version is in `5fecbc9`. README.md,
+  PROBLEM.md (goals 1-2, the protocol table), ADR 0001, and the "start here"
+  list above still describe the app as MCP-first.
+- **`analyse_position` in `analysis.py` has no caller** now the MCP tool is
+  gone. Kept because the board view will want single-position evaluation.
+- **Starlette deprecates `httpx` in `TestClient`** in favour of `httpx2`
+  (`StarletteDeprecationWarning` on every test run). httpx is also a runtime
+  dependency for the chess.com client, so the swap is for both.

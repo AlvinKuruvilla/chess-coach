@@ -264,9 +264,9 @@ async def review_game(
 def find_stockfish() -> str:
     """Path to the Stockfish binary, or an error that says how to get one.
 
-    Called at startup by both the backend and the MCP server so a missing
-    binary fails there with a sentence, not inside the first review as an
-    opaque `FileNotFoundError` from a subprocess launch.
+    Called at backend startup so a missing binary fails there with a
+    sentence, not inside the first review as an opaque `FileNotFoundError`
+    from a subprocess launch.
     """
     found = shutil.which("stockfish")
     if found is None:
