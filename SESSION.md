@@ -282,3 +282,16 @@ Keep this out of git — `tmp/` is already ignored.
 - **Starlette deprecates `httpx` in `TestClient`** in favour of `httpx2`
   (`StarletteDeprecationWarning` on every test run). httpx is also a runtime
   dependency for the chess.com client, so the swap is for both.
+- **Reviews run inside one HTTP request.** The 107-ply game took 32s through
+  the Next proxy, past its 30s default; `proxyTimeout` is raised to 5 minutes
+  in `web/next.config.ts` as a stopgap. The fix is a review job: start it,
+  poll or stream progress (`on_progress` already exists), fetch the result.
+- **No way to read a stored review without POSTing.** The game page shows a
+  "Review" button even when the review is cached; clicking it returns at once,
+  but a `GET /games/{id}/review` would let the page show it on load.
+- **Frontend types are hand-copied** from the backend's pydantic models
+  (`web/src/lib/api.ts`). Generate from `/openapi.json` once shapes settle.
+- **chessground is GPL-3.0**, chosen knowingly; the repo LICENSE is MIT. Fine
+  while private; decide before publishing a build.
+- **Port 3000 is taken** on this machine by another app; the dev server was
+  run on 3100 for checking.

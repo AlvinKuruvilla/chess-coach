@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from chess_coach import chesscom
 from chess_coach.analysis import find_stockfish
@@ -60,6 +60,9 @@ class Cost(BaseModel):
 
 
 class MistakeOut(BaseModel):
+    ply: int
+    """Half-moves played before this one; 0 is White's first move. The board
+    position before the mistake is the one after `ply` half-moves."""
     move_number: int
     side: str
     played: str
@@ -95,6 +98,9 @@ class GameSummary(BaseModel):
     black_result: str
     eco_url: str | None
     has_accuracies: bool
+    you: str | None
+    """`white` or `black`: the side played by the account the game was imported
+    for. `None` only if neither player matches, which should not happen."""
 
 
 class GameDetail(GameSummary):
@@ -142,6 +148,7 @@ async def review_pgn(
         mistake_count=len(mistakes),
         mistakes=[
             MistakeOut(
+                ply=m.ply,
                 move_number=m.move_number,
                 side=m.side,
                 played=m.played,
@@ -176,7 +183,14 @@ async def review_stored_game(
         raise LookupError(f"no game with id {game_id}; import games first")
     cached = store.review(row["url"], depth, threshold_cp)
     if cached is not None:
-        return Review.model_validate(cached)
+        # A review stored before a field was added to `Review` no longer
+        # validates. Recomputing it is cheaper than migrating stored JSON, and
+        # the result is identical apart from the new field, since the engine
+        # is deterministic.
+        try:
+            return Review.model_validate(cached)
+        except ValidationError:
+            pass
     review = await review_pgn(
         row["pgn"], depth=depth, threshold_cp=threshold_cp, on_progress=on_progress
     )
@@ -213,7 +227,15 @@ async def import_games(store: Store, username: str) -> ImportResult:
 
 
 def _summary(row: Any) -> GameSummary:
+    # chess.com usernames are case-insensitive, and the PGN and the API
+    # disagree on case: the import is for `alvinkuruvilla02`, the game record
+    # says `AlvinKuruvilla02`.
+    you = {
+        row["white"].lower(): "white",
+        row["black"].lower(): "black",
+    }.get(row["username"].lower())
     return GameSummary(
+        you=you,
         id=row["number"],
         url=row["url"],
         end_time=row["end_time"],

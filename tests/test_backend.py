@@ -97,6 +97,8 @@ def test_games_are_listed_newest_first_and_addressed_by_url_number(
     game = api.get("/games/1000000001").json()
     assert game["url"] == "https://www.chess.com/game/daily/1000000001"
     assert game["accuracies"] == {"white": 71.67, "black": 89.31}
+    # Imported as lowercase; the game record has `AlvinKuruvilla02`.
+    assert game["you"] == "white"
     assert game["pgn"].startswith('[Event "Let\'s Play!"]')
 
     assert api.get("/games/1").status_code == 404
@@ -129,3 +131,46 @@ def test_schema_names_every_route(api: Any) -> None:
         "/games/{game_id}",
         "/games/{game_id}/review",
     }
+
+
+def test_a_review_stored_under_an_older_schema_is_recomputed(
+    api: Any, requests: list[str]
+) -> None:
+    api.post("/games/import", params={"username": "alvinkuruvilla02"})
+    store = api.app.state.store
+    url = "https://www.chess.com/game/daily/1000000002"
+    # The shape stored before `ply` was added to each mistake.
+    store.save_review(
+        url,
+        6,
+        200,
+        {
+            "white": "?",
+            "black": "?",
+            "result": "*",
+            "opening": None,
+            "depth": 6,
+            "threshold_cp": 200,
+            "mistake_count": 1,
+            "mistakes": [
+                {
+                    "move_number": 1,
+                    "side": "white",
+                    "played": "e4",
+                    "best": "d4",
+                    "cp_loss": 300,
+                    "fen_before": "",
+                    "refutation": [],
+                    "cost": {
+                        "material_swing": 0,
+                        "squares": [],
+                        "mate_in": None,
+                        "kind": "positional",
+                    },
+                }
+            ],
+        },
+    )
+    review = api.post("/games/1000000002/review", params={"depth": 6}).json()
+    assert all("ply" in m for m in review["mistakes"])
+    assert review["white"] != "?"
