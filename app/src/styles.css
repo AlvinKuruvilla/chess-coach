@@ -1,0 +1,282 @@
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --text: #1d1d1b;
+  --dim: #6b6b66;
+  --line: #e2e0da;
+  --accent: #3a6ea5;
+  --win: #2f7a3a;
+  --loss: #a33a2f;
+  --mistake-bg: #fbe9e6;
+  --selected-bg: #e8f0f9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615;
+    --surface: #1f1f1d;
+    --text: #e9e8e4;
+    --dim: #9a9993;
+    --line: #34332f;
+    --accent: #7fa8d6;
+    --win: #6cbf78;
+    --loss: #e07a6e;
+    --mistake-bg: #3a2522;
+    --selected-bg: #22303f;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, sans-serif;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0.2rem 0;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 16px 3rem;
+}
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.import {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dim,
+.note {
+  color: var(--dim);
+}
+
+.error {
+  color: var(--loss);
+}
+
+/* Games list */
+
+.games {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.games th,
+.games td {
+  text-align: left;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.games th {
+  font-weight: 500;
+  color: var(--dim);
+}
+
+.result.win {
+  color: var(--win);
+}
+
+.result.loss {
+  color: var(--loss);
+}
+
+/* Game view: board, moves, review. Stacks below 900px. */
+
+.game {
+  display: grid;
+  grid-template-columns: minmax(0, 520px) 180px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .game {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.board {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.controls {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+
+.moves {
+  max-height: 560px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.moves ol {
+  margin: 0;
+  padding: 0.4rem 0.4rem 0.4rem 2.2rem;
+}
+
+.moves li {
+  color: var(--dim);
+}
+
+.move {
+  border: none;
+  background: none;
+  padding: 0.1rem 0.4rem;
+  min-width: 4.5rem;
+  text-align: left;
+}
+
+.move.mistake {
+  background: var(--mistake-bg);
+}
+
+.move.current {
+  outline: 2px solid var(--accent);
+}
+
+.review-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.mistakes {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.mistakes button {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+}
+
+.mistakes button.selected {
+  background: var(--selected-bg);
+  border-color: var(--accent);
+}
+
+.mistake-title {
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+}
+
+.loss {
+  color: var(--loss);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Desktop-app additions */
+
+button.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+}
+
+tr.clickable {
+  cursor: pointer;
+}
+
+tr.clickable:hover {
+  background: var(--selected-bg);
+}
+
+.progress {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.progress progress {
+  width: 100%;
+}
+
+/* First-run screen */
+
+.welcome {
+  max-width: 420px;
+  margin: 18vh auto 0;
+  padding: 0 16px;
+}
+
+.welcome h1 {
+  font-size: 1.8rem;
+}
+
+.welcome form {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.welcome label {
+  font-weight: 500;
+}

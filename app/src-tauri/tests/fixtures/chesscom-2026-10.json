@@ -1,0 +1,66 @@
+{
+ "games": [
+  {
+   "url": "https://www.chess.com/game/daily/1000000001",
+   "pgn": "[Event \"Let's Play!\"]\n[Site \"Chess.com\"]\n[Date \"2026.09.28\"]\n[Round \"-\"]\n[White \"AlvinKuruvilla02\"]\n[Black \"opponent-a\"]\n[Result \"0-1\"]\n[CurrentPosition \"r3k2r/ppp2ppp/8/P2pP2P/8/1P2PP1b/2P3qK/6N1 w kq - 3 21\"]\n[Timezone \"UTC\"]\n[ECO \"D00\"]\n[ECOUrl \"https://www.chess.com/openings/Queens-Pawn-Opening-Chigorin-Variation-2...Nf6\"]\n[UTCDate \"2026.09.28\"]\n[UTCTime \"22:12:52\"]\n[WhiteElo \"270\"]\n[BlackElo \"836\"]\n[TimeControl \"1/259200\"]\n[Termination \"opponent-a won by checkmate\"]\n[StartTime \"22:12:52\"]\n[EndDate \"2026.10.06\"]\n[EndTime \"15:30:25\"]\n[Link \"https://www.chess.com/game/daily/1000000001\"]\n\n1. d4 {[%clk 0:00:00.6]} 1... d5 {[%clk 0:00:04.8]} 2. Nc3 {[%clk 2:28:11.2]} 2... Nf6 {[%clk 0:07:32.1]} 3. f4 {[%clk 2:02:22.5]} 3... Nc6 {[%clk 0:00:20.5]} 4. Be3 {[%clk 4:53:16.5]} 4... e6 {[%clk 0:01:34.6]} 5. b3 {[%clk 6:27:00.2]} 5... Bb4 {[%clk 0:00:56.3]} 6. h4 {[%clk 0:01:29.8]} 6... Ng4 {[%clk 2:25:09.9]} 7. h5 {[%clk 0:00:05.7]} 7... Nxe3 {[%clk 0:00:00.5]} 8. Qd2 {[%clk 0:00:04]} 8... Nf5 {[%clk 0:00:03.4]} 9. a3 {[%clk 0:00:04.3]} 9... Bxc3 {[%clk 0:00:07]} 10. Qxc3 {[%clk 0:00:02.2]} 10... Qf6 {[%clk 0:00:04.5]} 11. a4 {[%clk 0:00:09.1]} 11... Ncxd4 {[%clk 0:00:03.2]} 12. e3 {[%clk 0:00:07.3]} 12... Nf3+ {[%clk 0:00:01.9]} 13. gxf3 {[%clk 0:00:04.5]} 13... Qxc3+ {[%clk 0:00:00.6]} 14. Ke2 {[%clk 0:00:07.5]} 14... Qxa1 {[%clk 0:00:02.3]} 15. a5 {[%clk 0:00:44.9]} 15... Ng3+ {[%clk 0:00:03]} 16. Kf2 {[%clk 0:01:17.5]} 16... Nxh1+ {[%clk 0:00:01.4]} 17. Kg2 {[%clk 0:00:07.3]} 17... e5 {[%clk 0:00:03.1]} 18. Kxh1 {[%clk 0:00:05]} 18... Qxf1 {[%clk 0:00:02.9]} 19. fxe5 {[%clk 0:00:03.8]} 19... Bh3 {[%clk 0:00:01.6]} 20. Kh2 {[%clk 0:00:07]} 20... Qg2# {[%clk 0:00:00.8]} 0-1\n",
+   "time_control": "1/259200",
+   "end_time": 1791300625,
+   "rated": true,
+   "accuracies": {
+    "white": 71.67,
+    "black": 89.31
+   },
+   "tcn": "lBZJbs!TnD5Qcu0Sjr9zpFTEFNEudluLiqzsls7TqyQBmuBvovTsemsayGLwmnwhnoSKohafDK6xhpfo",
+   "uuid": "00000000-0000-0000-0000-000000000001",
+   "initial_setup": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+   "fen": "r3k2r/ppp2ppp/8/P2pP2P/8/1P2PP1b/2P3qK/6N1 w kq - 3 21",
+   "start_time": 1790633572,
+   "time_class": "daily",
+   "rules": "chess",
+   "white": {
+    "rating": 270,
+    "result": "checkmated",
+    "@id": "https://api.chess.com/pub/player/alvinkuruvilla02",
+    "username": "AlvinKuruvilla02",
+    "uuid": "f369ca84-19fe-11ee-910c-d98ff217cd7f"
+   },
+   "black": {
+    "rating": 836,
+    "result": "win",
+    "@id": "https://api.chess.com/pub/player/opponent-a",
+    "username": "opponent-a",
+    "uuid": "00000000-0000-0000-0000-00000000000b"
+   },
+   "eco": "https://www.chess.com/openings/Queens-Pawn-Opening-Chigorin-Variation-2...Nf6"
+  },
+  {
+   "url": "https://www.chess.com/game/daily/1000000002",
+   "pgn": "[Event \"Let's Play!\"]\n[Site \"Chess.com\"]\n[Date \"2026.10.06\"]\n[Round \"-\"]\n[White \"opponent-a\"]\n[Black \"AlvinKuruvilla02\"]\n[Result \"1-0\"]\n[CurrentPosition \"rnbqkbnr/1p1p1Qpp/8/p1p1p3/2B5/2P1P3/PP1P1PPP/RNB1K1NR b KQ - 2 7\"]\n[Timezone \"UTC\"]\n[ECO \"A00\"]\n[ECOUrl \"https://www.chess.com/openings/Saragossa-Opening\"]\n[UTCDate \"2026.10.06\"]\n[UTCTime \"19:16:47\"]\n[WhiteElo \"843\"]\n[BlackElo \"257\"]\n[TimeControl \"1/259200\"]\n[Termination \"opponent-a won by checkmate\"]\n[StartTime \"19:16:47\"]\n[EndDate \"2026.10.07\"]\n[EndTime \"14:19:38\"]\n[Link \"https://www.chess.com/game/daily/1000000002\"]\n\n1. c3 {[%clk 0:00:00]} 1... c5 {[%clk 0:00:02.2]} 2. e3 {[%clk 0:00:01.7]} 2... e5 {[%clk 0:00:03.6]} 3. Bd3 {[%clk 0:00:02.7]} 3... a5 {[%clk 0:00:10.4]} 4. Bc4 {[%clk 0:00:09.4]} 4... f5 {[%clk 1:53:00]} 5. Qh5+ {[%clk 0:00:30.1]} 5... Ke7 {[%clk 0:00:03.2]} 6. Qxf5 {[%clk 0:00:02.6]} 6... Ke8 {[%clk 0:00:03.3]} 7. Qf7# {[%clk 0:00:07.9]} 1-0\n",
+   "time_control": "1/259200",
+   "end_time": 1791382778,
+   "rated": true,
+   "tcn": "ksYImu0KftWGtA1LdN80NL08L1",
+   "uuid": "00000000-0000-0000-0000-000000000002",
+   "initial_setup": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+   "fen": "rnbqkbnr/1p1p1Qpp/8/p1p1p3/2B5/2P1P3/PP1P1PPP/RNB1K1NR b KQ - 2 7",
+   "start_time": 1791314207,
+   "time_class": "daily",
+   "rules": "chess",
+   "white": {
+    "rating": 843,
+    "result": "win",
+    "@id": "https://api.chess.com/pub/player/opponent-a",
+    "username": "opponent-a",
+    "uuid": "00000000-0000-0000-0000-00000000000b"
+   },
+   "black": {
+    "rating": 257,
+    "result": "checkmated",
+    "@id": "https://api.chess.com/pub/player/alvinkuruvilla02",
+    "username": "AlvinKuruvilla02",
+    "uuid": "f369ca84-19fe-11ee-910c-d98ff217cd7f"
+   },
+   "eco": "https://www.chess.com/openings/Saragossa-Opening"
+  }
+ ]
+}
