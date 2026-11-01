@@ -52,24 +52,28 @@ Verified by running, not by reading:
 
 ## Start here next session
 
-Open, in rough order of value:
+Architecture as of 2026-11-01: a Tauri desktop app with a Rust backend; see
+[docs/0002](docs/0002-tauri-desktop-app-rust-backend.md). Feature order agreed
+2026-11-01:
 
-1. **Resources.** `chess://game/{id}` and `chess://game/{id}/ply/{n}` from the
-   PROBLEM.md table. Needs games to have ids, which needs a source.
-2. **A game source.** Lichess or chess.com import, so `review_game` takes an
-   id rather than a PGN blob pasted by hand. This is also what makes
-   pagination and completion real rather than staged.
-3. **The relation classifier.** `consequence_of` reports *what* the refutation
-   takes, never *why it was available* — pinned, overloaded, forked. That is
-   tier 2 in `docs/experiment-metric.md`, and without it the output is the
-   shallow-but-correct arm the experiment was meant to weigh against
-   something richer.
-4. **Cancellation.** The SDK cancels the handler scope, but `review_game`
-   holds an engine subprocess; check it is actually killed rather than
-   orphaned when a review is cancelled mid-flight.
+1. **Mistakes by winning chances, not centipawns.** The 200cp threshold
+   misfires in won and lost positions. Do it before anything builds on which
+   moves count as mistakes, since every change re-invalidates stored reviews.
+2. **Review in the background after sync**, so every game has evaluations.
+3. **What-if exploration.** Drag a piece from any position; the engine scores
+   the move against the best and the game move, and shows its reply as an
+   arrow without playing it. Needs a persistent engine and a variation tree
+   in the playback state (today it holds one branch).
+4. **Why the reply works.** Detectors over the refutation for a loose piece,
+   fork, pin, overloaded defender, back rank -- tier 2 in
+   `docs/experiment-metric.md`. They explain what-if moves too.
+5. **LLM coaching over those facts**, never over the raw board. Check it by
+   counting false claims over the reviewed games before trusting it.
+6. **Practice from your own mistakes**, using only material and mate kinds.
+7. **Patterns across games.** Needs more games than the 8 rated ones so far.
 
-Claude's standing role on this project: research, reference docs, tests,
-tooling, measurement, and review.
+Claude's standing role on this project, as of 2026-08-30: build it and show it
+running.
 
 ## Blocked on input
 
@@ -270,14 +274,18 @@ Keep this out of git — `tmp/` is already ignored.
   unchecked; it was answered 2026-08-18 (bit-exact).
 - "50 of my own games" and the chess.com accuracy baseline are stale; the corpus is the
   Lichess band sample.
+- Goals 1-2 (MCP specification coverage, reading the SDK) are paused: there is
+  no MCP server since 2026-11-01. The "Protocol baseline" section and its
+  surface table describe nothing that exists.
+- "One application, not a standalone MCP server" points at docs/0001, which is
+  superseded by docs/0002; the backend/web-UI/MCP split it describes is gone.
+- "The consumer is me" now holds more strongly: the chess.com account has 11
+  games (8 rated, all daily) as of 2026-11-01, up from 3.
 
 ## Found 2026-11-01
 
-- **Docs still describe the old architecture.** The app is now a Tauri
-  desktop app with a Rust backend; the MCP server (last in `5fecbc9`) and the
-  Python backend (last in `28a28cd`) are gone. PROBLEM.md (goals 1-2, the
-  protocol table), ADR 0001, `docs/async-serve-loop.md`, and the "start here"
-  list above still describe the MCP-first design.
+- **PROBLEM.md still describes the MCP-first design**; see "PROBLEM.md drift".
+  ADR 0001 is marked superseded and the two MCP docs are marked historical.
 - **Rust terminal detection is narrower than python-chess's.** shakmaty's
   `outcome` has no fivefold-repetition or 75-move rule, so those positions are
   searched instead of scored 0 directly (`terminal_cp` in `analysis.rs`).

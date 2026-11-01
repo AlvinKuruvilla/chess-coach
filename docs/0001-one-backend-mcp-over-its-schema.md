@@ -1,6 +1,6 @@
 # 0001: One backend, MCP over its schema
 
-Status: proposed
+Status: superseded by [0002](0002-tauri-desktop-app-rust-backend.md)
 Date: 2026-11-01
 Relates to: [PROBLEM.md](../PROBLEM.md), [async-serve-loop.md](async-serve-loop.md)
 

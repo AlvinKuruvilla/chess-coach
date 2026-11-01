@@ -1,5 +1,8 @@
 # Notes for an async serve loop
 
+> Historical as of 2026-11-01: there is no MCP server; see
+> [0002](0002-tauri-desktop-app-rust-backend.md). Kept for when MCP returns.
+
 Decided 2026-08-18: the stdio serve loop is async. This is what that decision
 buys, what it costs, and where to look for prior art. It deliberately stops
 short of prescribing a structure — the point of hand-writing the server is to

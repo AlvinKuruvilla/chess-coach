@@ -1,5 +1,8 @@
 # MCP 2026-07-28: a working reference
 
+> Historical as of 2026-11-01: there is no MCP server; see
+> [0002](0002-tauri-desktop-app-rust-backend.md). Kept for when MCP returns.
+
 Wire shapes for the revision this project targets, condensed from the
 specification so you are not holding five browser tabs open while writing a
 server.
