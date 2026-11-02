@@ -5,6 +5,10 @@
 //! - `archives` -- which chess.com monthly archives have been fetched. A past
 //!   month never changes, so its row is what stops it being fetched again.
 //! - `games` -- one row per game, keyed by chess.com's game URL.
+//! - `drills` -- trainer progress per mistake position: its Leitner box and
+//!   when it is next due (see `practice.rs`). Keyed by game and ply, not by
+//!   review, so progress survives a change of mistake criterion for any
+//!   position that is still a mistake under the new one.
 //! - `settings` -- key/value app settings; today only the chess.com account.
 //! - `reviews` -- one row per (game, depth, criterion), where the criterion
 //!   names how mistakes are classified (`analysis::CRITERION`). A review is a pure
@@ -19,7 +23,7 @@
 //! constraint on `games.number` turns that into an import error rather than
 //! a silent overwrite.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
 use eyre::Context;
@@ -28,6 +32,7 @@ use serde::Serialize;
 
 use crate::analysis::Review;
 use crate::chesscom;
+use crate::practice::Schedule;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS archives (
@@ -56,6 +61,16 @@ CREATE TABLE IF NOT EXISTS games (
 );
 
 CREATE INDEX IF NOT EXISTS games_by_end_time ON games (end_time DESC);
+
+CREATE TABLE IF NOT EXISTS drills (
+    game_url  TEXT NOT NULL REFERENCES games (url),
+    ply       INTEGER NOT NULL,
+    box       INTEGER NOT NULL,
+    due_at    INTEGER NOT NULL,
+    attempts  INTEGER NOT NULL,
+    last_seen INTEGER NOT NULL,
+    PRIMARY KEY (game_url, ply)
+);
 
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
@@ -308,6 +323,82 @@ impl Store {
         Ok(ids)
     }
 
+    /// Every game with a stored review at this depth under `criterion`,
+    /// paired with the review. Reviews that no longer parse are skipped, as
+    /// in [`Store::review`].
+    pub fn reviewed_games(
+        &self,
+        depth: u32,
+        criterion: &str,
+    ) -> eyre::Result<Vec<(GameSummary, Review)>> {
+        let mut statement = self.db.prepare(
+            "SELECT g.*, r.result AS review FROM games g \
+             JOIN reviews r ON r.game_url = g.url \
+             WHERE r.depth = ?1 AND r.criterion = ?2 \
+             ORDER BY g.end_time DESC",
+        )?;
+        let rows: Vec<(GameSummary, String)> = statement
+            .query_map(params![depth, criterion], |row| {
+                Ok((summary(row)?, row.get("review")?))
+            })?
+            .collect::<Result<_, _>>()
+            .context("list reviewed games")?;
+        Ok(rows
+            .into_iter()
+            .filter_map(|(game, text)| Some((game, serde_json::from_str(&text).ok()?)))
+            .collect())
+    }
+
+    /// Trainer progress for every position seen so far, keyed by game URL
+    /// and ply.
+    pub fn drill_schedules(&self) -> eyre::Result<HashMap<(String, usize), Schedule>> {
+        let mut statement = self
+            .db
+            .prepare("SELECT game_url, ply, box, due_at FROM drills")?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    (
+                        row.get::<_, String>(0)?,
+                        usize::try_from(row.get::<_, u32>(1)?).expect("a ply fits in usize"),
+                    ),
+                    Schedule {
+                        r#box: row.get(2)?,
+                        due_at: row.get(3)?,
+                    },
+                ))
+            })?
+            .collect::<Result<_, _>>()
+            .context("read trainer progress")?;
+        Ok(rows)
+    }
+
+    pub fn save_drill(
+        &self,
+        url: &str,
+        ply: usize,
+        schedule: Schedule,
+        now: i64,
+    ) -> eyre::Result<()> {
+        self.db
+            .execute(
+                "INSERT INTO drills (game_url, ply, box, due_at, attempts, last_seen) \
+                 VALUES (?1, ?2, ?3, ?4, 1, ?5) \
+                 ON CONFLICT (game_url, ply) DO UPDATE SET box = excluded.box, \
+                 due_at = excluded.due_at, attempts = attempts + 1, \
+                 last_seen = excluded.last_seen",
+                params![
+                    url,
+                    u32::try_from(ply).context("store the ply")?,
+                    schedule.r#box,
+                    schedule.due_at,
+                    now
+                ],
+            )
+            .context("save trainer progress")?;
+        Ok(())
+    }
+
     pub fn save_review(&self, url: &str, review: &Review) -> eyre::Result<()> {
         self.db
             .execute(
@@ -459,6 +550,28 @@ mod tests {
         // A review under another criterion or depth does not count.
         assert_eq!(store.unreviewed_games(16, "other").expect("query").len(), 2);
         assert_eq!(store.unreviewed_games(12, "c").expect("query").len(), 2);
+    }
+
+    #[test]
+    fn trainer_progress_is_saved_and_updated_in_place() {
+        let mut store = Store::in_memory().expect("store opens");
+        store
+            .upsert_games("alvinkuruvilla02", &chesscom::fixture())
+            .expect("insert");
+        let url = "https://www.chess.com/game/daily/1000000001";
+        let first = Schedule {
+            r#box: 1,
+            due_at: 100,
+        };
+        store.save_drill(url, 8, first, 10).expect("save");
+        let second = Schedule {
+            r#box: 2,
+            due_at: 200,
+        };
+        store.save_drill(url, 8, second, 20).expect("save again");
+        let schedules = store.drill_schedules().expect("read");
+        assert_eq!(schedules.len(), 1);
+        assert_eq!(schedules[&(url.to_owned(), 8)], second);
     }
 
     #[test]

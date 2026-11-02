@@ -77,6 +77,40 @@ export interface Review {
   evaluations: number[];
 }
 
+export interface Drill {
+  game_id: number;
+  opponent: string;
+  end_time: number;
+  you: Side;
+  /** Your expected score before the mistake with best play, 0 to 100. */
+  expected_before: number;
+  mistake: Mistake;
+  box: number;
+  seen: boolean;
+}
+
+export interface PracticeQueue {
+  due: Drill[];
+  waiting: number;
+  unreviewed: number;
+}
+
+export interface MoveJudgement {
+  san: string;
+  cp_after: number;
+  expected_after: number;
+  refutation: string[];
+  cost: Mistake["cost"];
+}
+
+export interface DrillVerdict {
+  judgement: MoveJudgement;
+  chances_lost: number;
+  solved: boolean;
+}
+
+export type Grade = "first_try" | "retry" | "missed";
+
 export interface Progress {
   done: number;
   total: number;
@@ -100,6 +134,11 @@ export const api = {
   game: (id: number) => call<GameDetail>("get_game", { id }),
   storedReview: (id: number) => call<Review | null>("stored_review", { id }),
   unreviewedGames: () => call<number[]>("unreviewed_games"),
+  practiceQueue: () => call<PracticeQueue>("practice_queue"),
+  judgeDrill: (fen: string, uci: string, expectedBefore: number) =>
+    call<DrillVerdict>("judge_drill", { fen, uci, expectedBefore }),
+  recordDrill: (gameId: number, ply: number, grade: Grade) =>
+    call<number>("record_drill", { gameId, ply, grade }),
   review: (id: number, onProgress: (p: Progress) => void) => {
     const channel = new Channel<Progress>();
     channel.onmessage = onProgress;

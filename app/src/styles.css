@@ -946,3 +946,162 @@ cg-board square.check {
 .move.mine {
   color: var(--ink);
 }
+
+/* Section tabs */
+
+.tabs {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1rem clamp(20px, 5vw, 48px) 0;
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+.tabs button {
+  border: none;
+  background: none;
+  padding: 0.25rem 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--muted);
+  border-bottom: 1.5px solid transparent;
+  transition: color 120ms var(--ease-out), border-color 120ms var(--ease-out);
+}
+
+.tabs button[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.tabs button:hover {
+  color: var(--ink);
+}
+
+/* Trainer */
+
+.practice {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(20px, 4vh, 40px) clamp(20px, 5vw, 48px) 48px;
+}
+
+.practice-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.practice-head h1 {
+  font-size: 2.25rem;
+  font-variation-settings: "opsz" 96;
+}
+
+.practice-body {
+  display: grid;
+  grid-template-columns: minmax(0, 560px) minmax(280px, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .practice-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.practice-board {
+  width: min(100%, calc(100vh - 12rem));
+}
+
+.practice-panel {
+  display: grid;
+  gap: 1.25rem;
+  align-content: start;
+}
+
+.practice-panel .context {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.practice-panel .context strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.prompt h2 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+
+.prompt p {
+  margin: 0.5rem 0 0;
+}
+
+.prompt.miss h2 {
+  color: var(--mistake);
+}
+
+.prompt.good h2 {
+  color: var(--better);
+}
+
+.prompt .hint {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--muted);
+}
+
+.prompt .better {
+  color: var(--better);
+}
+
+.what-happened {
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.what-happened p {
+  margin: 0 0 0.4rem;
+}
+
+.line {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--muted);
+}
+
+.practice-actions {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.practice-empty {
+  max-width: 34rem;
+  padding-top: 12vh;
+}
+
+.practice-empty h1 {
+  font-size: 2rem;
+}
+
+.practice-empty p {
+  margin: 1rem 0 1.5rem;
+}
+
+/* The board shows legal destinations while the trainer waits for a move. */
+cg-board square.move-dest {
+  background: radial-gradient(oklch(30% 0.03 60 / 0.25) 19%, transparent 20%);
+}
+
+cg-board square.move-dest:hover {
+  background: oklch(30% 0.03 60 / 0.12);
+}
+
+cg-board square.selected {
+  background-color: oklch(80% 0.09 95 / 0.5);
+}

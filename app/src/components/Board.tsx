@@ -2,6 +2,7 @@ import { Chessground } from "chessground";
 import type { Api } from "chessground/api";
 import type { DrawShape } from "chessground/draw";
 import type { Key } from "chessground/types";
+import { Chess, type Square } from "chess.js";
 import { useEffect, useRef } from "react";
 
 // Base layout and the piece set. The square colours come from styles.css,
@@ -35,23 +36,48 @@ const BRUSHES = {
   yellow: { key: "y", color: "#b07a1f", opacity: 0.8, lineWidth: 11 },
 };
 
+/** Lets the player move pieces for `color`; every other move is refused. */
+export interface Movable {
+  color: "white" | "black";
+  /** Called with the move in UCI form, e.g. `e2e4` or `e7e8q`. */
+  onMove: (uci: string) => void;
+}
+
+// Legal destinations for the side to move, in chessground's shape.
+function destinations(fen: string): Map<Key, Key[]> {
+  const dests = new Map<Key, Key[]>();
+  for (const move of new Chess(fen).moves({ verbose: true })) {
+    const list = dests.get(move.from as Key) ?? [];
+    list.push(move.to as Key);
+    dests.set(move.from as Key, list);
+  }
+  return dests;
+}
+
 /**
- * A view-only board. Chessground owns its DOM, so React mounts it once and
- * pushes every later change through `api.set`, rather than re-rendering.
+ * The board. Chessground owns its DOM, so React mounts it once and pushes
+ * every later change through `api.set`, rather than re-rendering. Read-only
+ * unless `movable` is given.
  */
 export function Board({
   fen,
   orientation,
   lastMove,
   arrows,
+  movable,
 }: {
   fen: string;
   orientation: "white" | "black";
   lastMove?: [string, string];
   arrows: Arrow[];
+  movable?: Movable;
 }) {
   const element = useRef<HTMLDivElement>(null);
   const board = useRef<Api | null>(null);
+  // Chessground keeps the `after` callback it was given; reading the latest
+  // `movable` through a ref keeps it from calling a stale handler.
+  const onMove = useRef<Movable["onMove"] | undefined>(undefined);
+  onMove.current = movable?.onMove;
 
   useEffect(() => {
     if (!element.current) return;
@@ -67,18 +93,42 @@ export function Board({
     };
   }, []);
 
+  const color = movable?.color;
   useEffect(() => {
+    const turn = fen.split(" ")[1] === "w" ? "white" : "black";
     board.current?.set({
       fen,
       orientation,
+      turnColor: turn,
       lastMove: lastMove as Key[] | undefined,
+      viewOnly: !color,
+      movable: color
+        ? {
+            free: false,
+            color,
+            dests: turn === color ? destinations(fen) : new Map(),
+            showDests: true,
+            events: {
+              after: (from, to) => {
+                // Promotion always to a queen. Under-promotion is almost
+                // never the answer in a beginner's own games, and asking
+                // would need a picker. NOTE: a drill whose answer is an
+                // under-promotion would be unsolvable.
+                const piece = new Chess(fen).get(from as Square);
+                const lastRank = to[1] === "8" || to[1] === "1";
+                const promotion = piece?.type === "p" && lastRank ? "q" : "";
+                onMove.current?.(`${from}${to}${promotion}`);
+              },
+            },
+          }
+        : { color: undefined, dests: new Map() },
     });
     board.current?.setAutoShapes(
       arrows.map(
         (a): DrawShape => ({ orig: a.from as Key, dest: a.to as Key, brush: BRUSH_FOR[a.brush] }),
       ),
     );
-  }, [fen, orientation, lastMove, arrows]);
+  }, [fen, orientation, lastMove, arrows, color]);
 
   return <div ref={element} className="board" />;
 }

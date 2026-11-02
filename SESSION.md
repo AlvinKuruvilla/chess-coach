@@ -59,9 +59,10 @@ Architecture as of 2026-11-01: a Tauri desktop app with a Rust backend; see
 1. ~~**Mistakes by winning chances, not centipawns.**~~ Done 2026-11-01; see
    `docs/win-curve.md`. Open: the fit method did not reproduce Lichess's
    constant on 2300+ games (0.0051 vs 0.0037), unexplained.
-2. **Review in the background after sync**, so every game has evaluations
-   and the trainer has every mistake to draw on.
-3. **The "find the move" trainer, fed by your own mistakes.** Decided
+2. ~~**Review in the background after sync.**~~ Done 2026-11-01.
+3. ~~**The "find the move" trainer, fed by your own mistakes.**~~ First version
+   done 2026-11-01 (Practice tab). Not yet seen running by Claude; no
+   screenshot tool was connected. Decided
    2026-11-01 after research (summarised in the session; key sources: the
    2026 Psychological Science study of 44,213 chess.com players, study-type
    activities 3.61x more efficient than play; Lichess "Learn from your
@@ -332,5 +333,12 @@ Keep this out of git — `tmp/` is already ignored.
   account would skip months the first one fetched.
 - **Frontend types are hand-copied** from the Rust serde types
   (`app/src/api.ts`). `ts-rs` or `tauri-specta` could generate them.
+- **Trainer promotes to a queen only** (`Board.tsx`). A drill whose answer is
+  an under-promotion cannot be solved.
+- **Trainer judging starts a Stockfish process per move tried** (~1s at depth
+  16). Fine for one move at a time; the persistent engine planned for what-if
+  would remove it.
+- **Engine views shift between searches**, so a move can score slightly above
+  the "best" one; the trainer clamps the loss at zero.
 - **`React.StrictMode` runs the launch sync twice in development.** Harmless
   (imports are idempotent) but makes two requests to chess.com.

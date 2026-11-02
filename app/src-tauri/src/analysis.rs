@@ -52,7 +52,7 @@ pub const CRITERION: &str = "expected-score k=0.002671 mistake=10 blunder=15";
 
 /// A mover's expected score, 0 to 100, from an evaluation in centipawns from
 /// their own point of view.
-fn expected_score(cp: i32) -> f64 {
+pub fn expected_score(cp: i32) -> f64 {
     if cp >= MATE_CP {
         return 100.0;
     }
@@ -490,6 +490,73 @@ pub async fn review_game(
     })
 }
 
+/// What one move from a position costs, judged the same way a review judges
+/// a game move.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MoveJudgement {
+    pub san: String,
+    /// Centipawns after the move, from the mover's point of view.
+    pub cp_after: i32,
+    /// Expected score after the move, 0 to 100, for the mover.
+    pub expected_after: f64,
+    /// The engine's best reply line to the move.
+    pub refutation: Vec<String>,
+    pub cost: Cost,
+}
+
+/// Judge `uci` played from `fen`.
+///
+/// The caller compares `expected_after` with the expected score of the best
+/// move, which it already has from the game's review; searching the position
+/// before the move again would cost a second search for a number already
+/// known.
+pub async fn judge_move(
+    engine_path: &Path,
+    fen_before: &str,
+    uci: &str,
+    depth: u32,
+) -> eyre::Result<MoveJudgement> {
+    let before: Chess = Fen::from_ascii(fen_before.as_bytes())
+        .map_err(|e| eyre!("not a valid FEN: {e}"))?
+        .into_position(CastlingMode::Standard)
+        .map_err(|e| eyre!("not a legal position: {e}"))?;
+    let m = UciMove::from_ascii(uci.as_bytes())
+        .map_err(|e| eyre!("{uci:?} is not a UCI move: {e}"))?
+        .to_move(&before)
+        .map_err(|e| eyre!("{uci} is not legal in this position: {e}"))?;
+    let mover = before.turn();
+    let san_text = san(&before, &m);
+    let mut after = before.clone();
+    after.play_unchecked(m);
+
+    let (white, pv) = match terminal_cp(&after) {
+        Some(terminal) => (terminal, Vec::new()),
+        None => {
+            let mut engine = Engine::start(engine_path).await?;
+            let analysis = engine
+                .analyse(fen_before, &[uci.to_owned()], depth)
+                .await
+                .context("analyse the position after the move")?;
+            engine.quit().await?;
+            (
+                white_cp(analysis.score, after.turn()),
+                pv_moves(&after, &analysis.pv),
+            )
+        }
+    };
+    let cp_after = match mover {
+        Color::White => white,
+        Color::Black => -white,
+    };
+    Ok(MoveJudgement {
+        san: san_text,
+        cp_after,
+        expected_after: expected_score(cp_after),
+        refutation: variation_san(&after, &pv),
+        cost: consequence_of(&after, &pv),
+    })
+}
+
 /// The engine's PV as legal moves, stopping at the first one that does not
 /// parse or is illegal. Neither should happen with Stockfish, and truncating
 /// keeps a bad line from producing a material diff over a corrupted board.
@@ -669,6 +736,26 @@ mod tests {
             assert_eq!(review.evaluations.len(), 8);
             assert_eq!(review.evaluations.last(), Some(&MATE_CP));
             assert_eq!(blunder.best_line.first(), Some(&blunder.best));
+        }
+
+        #[tokio::test]
+        async fn a_judged_move_that_allows_mate_scores_as_lost() {
+            let Ok(path) = engine_path() else { return };
+            // Before 3... Nf6: Black to move, and Nf6 allows Qxf7#.
+            let fen = "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3";
+            let blunder = judge_move(&path, fen, "g8f6", 10).await.expect("judged");
+            assert_eq!(blunder.san, "Nf6");
+            assert_eq!(blunder.cp_after, -MATE_CP);
+            assert_eq!(blunder.expected_after, 0.0);
+            assert_eq!(
+                blunder.refutation.first().map(String::as_str),
+                Some("Qxf7#")
+            );
+            assert_eq!(blunder.cost.kind, CostKind::Mate);
+
+            let defence = judge_move(&path, fen, "g7g6", 10).await.expect("judged");
+            assert!(defence.expected_after > 20.0, "g6 holds: {defence:?}");
+            assert!(judge_move(&path, fen, "e1e2", 10).await.is_err());
         }
 
         #[tokio::test]

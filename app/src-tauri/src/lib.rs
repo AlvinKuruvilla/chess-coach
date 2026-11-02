@@ -9,6 +9,7 @@
 //!   store.rs     -- SQLite: games, fetched archives, finished reviews
 //!   analysis.rs  -- review: Stockfish over every position (via uci.rs),
 //!                   then what each mistake's refutation takes
+//!   practice.rs  -- the trainer's spaced schedule over past mistakes
 //! ```
 //!
 //! Errors cross the IPC boundary as strings with the full `eyre` context
@@ -16,6 +17,7 @@
 
 mod analysis;
 mod chesscom;
+mod practice;
 mod store;
 mod uci;
 
@@ -28,7 +30,8 @@ use serde::Serialize;
 use tauri::Manager;
 use tauri::ipc::Channel;
 
-use crate::analysis::Review;
+use crate::analysis::{CostKind, Mistake, MoveJudgement, Review, Side};
+use crate::practice::Grade;
 use crate::store::{GameDetail, GameSummary, Store};
 
 /// Default search depth. 16 keeps a 60-ply review near half a minute while
@@ -278,6 +281,164 @@ async fn review_game(
     run.await.map_err(report)
 }
 
+fn now() -> eyre::Result<i64> {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .context("read the clock")?
+        .as_secs();
+    Ok(i64::try_from(seconds).expect("the clock is before 2^63 seconds"))
+}
+
+/// One position for the trainer: the moment before one of your mistakes.
+#[derive(Serialize)]
+struct Drill {
+    game_id: i64,
+    opponent: String,
+    end_time: i64,
+    you: Side,
+    /// Expected score before the mistake with best play, 0 to 100, for you.
+    /// A tried move is judged against this.
+    expected_before: f64,
+    mistake: Mistake,
+    /// Leitner box; 0 for a position never seen.
+    r#box: u32,
+    seen: bool,
+}
+
+#[derive(Serialize)]
+struct PracticeQueue {
+    /// Due now: positions whose wait is over first, oldest due first, then
+    /// new ones, costliest first.
+    due: Vec<Drill>,
+    /// Seen positions not yet due again.
+    waiting: usize,
+    /// Games not reviewed yet, whose mistakes are not in the queue.
+    unreviewed: usize,
+}
+
+/// Your mistakes from every reviewed game that are worth drilling: those
+/// whose refutation wins material or mates. In `trade_neutral` and
+/// `positional` mistakes the review cannot say what the better move achieves,
+/// so a drill could not explain its answer.
+#[tauri::command]
+fn practice_queue(state: tauri::State<'_, AppState>) -> CommandResult<PracticeQueue> {
+    let run = || -> eyre::Result<PracticeQueue> {
+        let now = now()?;
+        let store = state.store.lock().expect("store lock poisoned");
+        let schedules = store.drill_schedules()?;
+        let unreviewed = store
+            .unreviewed_games(DEFAULT_DEPTH, analysis::CRITERION)?
+            .len();
+        let mut overdue = Vec::new();
+        let mut fresh = Vec::new();
+        let mut waiting = 0;
+        for (game, review) in store.reviewed_games(DEFAULT_DEPTH, analysis::CRITERION)? {
+            let you = match game.you {
+                Some("white") => Side::White,
+                Some("black") => Side::Black,
+                _ => continue,
+            };
+            for mistake in review.mistakes {
+                if mistake.side != you
+                    || !matches!(mistake.cost.kind, CostKind::Material | CostKind::Mate)
+                {
+                    continue;
+                }
+                let white_before = review.evaluations[mistake.ply];
+                let mine_before = if you == Side::White {
+                    white_before
+                } else {
+                    -white_before
+                };
+                let schedule = schedules.get(&(game.url.clone(), mistake.ply)).copied();
+                let drill = Drill {
+                    game_id: game.id,
+                    opponent: if you == Side::White {
+                        game.black.clone()
+                    } else {
+                        game.white.clone()
+                    },
+                    end_time: game.end_time,
+                    you,
+                    expected_before: analysis::expected_score(mine_before),
+                    r#box: schedule.map_or(0, |s| s.r#box),
+                    seen: schedule.is_some(),
+                    mistake,
+                };
+                match schedule {
+                    Some(s) if s.due_at > now => waiting += 1,
+                    Some(s) => overdue.push((s.due_at, drill)),
+                    None => fresh.push(drill),
+                }
+            }
+        }
+        overdue.sort_by_key(|(due_at, _)| *due_at);
+        fresh.sort_by(|a, b| b.mistake.chances_lost.total_cmp(&a.mistake.chances_lost));
+        Ok(PracticeQueue {
+            due: overdue.into_iter().map(|(_, d)| d).chain(fresh).collect(),
+            waiting,
+            unreviewed,
+        })
+    };
+    run().map_err(report)
+}
+
+#[derive(Serialize)]
+struct DrillVerdict {
+    judgement: MoveJudgement,
+    /// Expected score the tried move gives up against the best move.
+    chances_lost: f64,
+    solved: bool,
+}
+
+/// Judge a move tried in a drill against the best move's expected score.
+#[tauri::command]
+async fn judge_drill(
+    state: tauri::State<'_, AppState>,
+    fen: String,
+    uci: String,
+    expected_before: f64,
+) -> CommandResult<DrillVerdict> {
+    let run = async {
+        let judgement = analysis::judge_move(&state.engine, &fen, &uci, DEFAULT_DEPTH).await?;
+        // Clamped at zero: a move can score a little above the "best" one
+        // when the engine's view of the position shifts between searches.
+        let chances_lost = (expected_before - judgement.expected_after).max(0.0);
+        Ok(DrillVerdict {
+            solved: chances_lost < practice::SOLVED_POINTS,
+            chances_lost: (chances_lost * 10.0).round() / 10.0,
+            judgement,
+        })
+    };
+    run.await.map_err(report)
+}
+
+/// Record how a drill went and schedule its next appearance. Returns when it
+/// is next due, Unix seconds.
+#[tauri::command]
+fn record_drill(
+    state: tauri::State<'_, AppState>,
+    game_id: i64,
+    ply: usize,
+    grade: Grade,
+) -> CommandResult<i64> {
+    let run = || -> eyre::Result<i64> {
+        let now = now()?;
+        let store = state.store.lock().expect("store lock poisoned");
+        let game = store
+            .game(game_id)?
+            .ok_or_else(|| eyre!("no game with id {game_id}"))?;
+        let current = store
+            .drill_schedules()?
+            .get(&(game.summary.url.clone(), ply))
+            .map_or(0, |s| s.r#box);
+        let schedule = practice::next(current, grade, now);
+        store.save_drill(&game.summary.url, ply, schedule, now)?;
+        Ok(schedule.due_at)
+    };
+    run().map_err(report)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -305,6 +466,9 @@ pub fn run() {
             get_game,
             stored_review,
             unreviewed_games,
+            practice_queue,
+            judge_drill,
+            record_drill,
             review_game
         ])
         .run(tauri::generate_context!())
