@@ -19,7 +19,7 @@ Three things changed the same day.
 
 - **The MCP server was set aside** until it earns a place in the app. The app is the
   product; goals 1-2 in PROBLEM.md (cover the MCP specification, read the SDK) are
-  paused, not dropped. The last version of the server is in `5fecbc9`.
+  paused, not dropped. The last version of the server is in `05a6de1`.
 - **A web app needed two servers running** -- FastAPI and Next -- and Next's proxy
   cut off any review longer than 30 seconds, which the 107-ply game was. The app is
   used by one person at one desk, so a browser buys nothing.

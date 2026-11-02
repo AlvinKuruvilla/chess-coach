@@ -12,7 +12,7 @@
 //! sampled mistakes in the 400-999 band, 83% carry a consequence derivable
 //! this way; the rest are positional and come back empty. That figure was
 //! measured on the Python implementation this module was ported from
-//! (`src/chess_coach/analysis.py` in commit `9e74157`), see
+//! (`src/chess_coach/analysis.py` in commit `40bff53`), see
 //! `docs/experiment-metric.md`.
 
 use std::io::Cursor;
