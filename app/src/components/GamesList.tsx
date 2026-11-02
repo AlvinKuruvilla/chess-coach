@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { api, outcome, type GamePage, type GameSummary } from "../api";
 
@@ -22,6 +22,34 @@ export function GamesList({
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [reviewing, setReviewing] = useState<string | null>(null);
+  const reviewRun = useRef(0);
+
+  // Review every game that has no review yet, one at a time, newest first.
+  // One Stockfish process runs at a time, so the machine stays usable and a
+  // game opened meanwhile gets its own review without contention beyond one
+  // extra process. A later call supersedes an earlier one.
+  const reviewBacklog = useCallback(async () => {
+    const run = ++reviewRun.current;
+    let ids: number[];
+    try {
+      ids = await api.unreviewedGames();
+    } catch {
+      return;
+    }
+    for (const [index, id] of ids.entries()) {
+      if (reviewRun.current !== run) return;
+      const label = `Reviewing game ${index + 1} of ${ids.length}`;
+      setReviewing(label);
+      try {
+        await api.review(id, (p) => setReviewing(`${label} · ${p.done}/${p.total}`));
+      } catch {
+        // One bad game must not stop the rest; it stays unreviewed and is
+        // retried after the next sync.
+      }
+    }
+    if (reviewRun.current === run) setReviewing(null);
+  }, []);
 
   const show = useCallback((page: GamePage) => {
     setGames(page.games);
@@ -47,8 +75,10 @@ export function GamesList({
       setError(`Could not reach chess.com. ${(err as Error).message}`);
     } finally {
       setSyncing(false);
+      // Offline or not, games already stored may still need reviewing.
+      void reviewBacklog();
     }
-  }, [show]);
+  }, [show, reviewBacklog]);
 
   useEffect(() => {
     api.games().then(show, (err: Error) => setError(err.message));
@@ -79,7 +109,7 @@ export function GamesList({
       <header className="library-head">
         <h1>{account}</h1>
         <div className="sync">
-          {status && <span>{status}</span>}
+          {reviewing ? <span>{reviewing}</span> : status && <span>{status}</span>}
           <button className="quiet" onClick={() => void sync()} disabled={syncing}>
             Refresh
           </button>

@@ -99,6 +99,7 @@ export const api = {
   games: () => call<GamePage>("list_games", {}),
   game: (id: number) => call<GameDetail>("get_game", { id }),
   storedReview: (id: number) => call<Review | null>("stored_review", { id }),
+  unreviewedGames: () => call<number[]>("unreviewed_games"),
   review: (id: number, onProgress: (p: Progress) => void) => {
     const channel = new Channel<Progress>();
     channel.onmessage = onProgress;

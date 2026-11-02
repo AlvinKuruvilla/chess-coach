@@ -292,6 +292,22 @@ impl Store {
         Ok(text.and_then(|t| serde_json::from_str(&t).ok()))
     }
 
+    /// Ids of games with no review at this depth under `criterion`, newest
+    /// first, so the games most likely to be opened next are reviewed first.
+    pub fn unreviewed_games(&self, depth: u32, criterion: &str) -> eyre::Result<Vec<i64>> {
+        let mut statement = self.db.prepare(
+            "SELECT number FROM games g WHERE NOT EXISTS ( \
+                 SELECT 1 FROM reviews r \
+                 WHERE r.game_url = g.url AND r.depth = ?1 AND r.criterion = ?2) \
+             ORDER BY end_time DESC",
+        )?;
+        let ids = statement
+            .query_map(params![depth, criterion], |row| row.get(0))?
+            .collect::<Result<_, _>>()
+            .context("list unreviewed games")?;
+        Ok(ids)
+    }
+
     pub fn save_review(&self, url: &str, review: &Review) -> eyre::Result<()> {
         self.db
             .execute(
@@ -422,6 +438,27 @@ mod tests {
             .query_row("SELECT count(*) FROM games", [], |row| row.get(0))
             .expect("count");
         assert_eq!(games, 1);
+    }
+
+    #[test]
+    fn only_games_without_a_current_review_are_unreviewed() {
+        let mut store = Store::in_memory().expect("store opens");
+        store
+            .upsert_games("alvinkuruvilla02", &chesscom::fixture())
+            .expect("insert");
+        assert_eq!(store.unreviewed_games(16, "c").expect("query").len(), 2);
+        let url = "https://www.chess.com/game/daily/1000000001";
+        store
+            .db
+            .execute("INSERT INTO reviews VALUES (?1, 16, 'c', '{}')", [url])
+            .expect("insert a review");
+        assert_eq!(
+            store.unreviewed_games(16, "c").expect("query"),
+            [1000000002]
+        );
+        // A review under another criterion or depth does not count.
+        assert_eq!(store.unreviewed_games(16, "other").expect("query").len(), 2);
+        assert_eq!(store.unreviewed_games(12, "c").expect("query").len(), 2);
     }
 
     #[test]

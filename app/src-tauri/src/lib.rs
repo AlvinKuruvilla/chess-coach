@@ -207,6 +207,18 @@ fn get_game(state: tauri::State<'_, AppState>, id: i64) -> CommandResult<GameDet
         .ok_or_else(|| format!("no game with id {id}; import games first"))
 }
 
+/// Games not yet reviewed at the default depth under the current criterion,
+/// newest first. The webview reviews them one at a time after each sync.
+#[tauri::command]
+fn unreviewed_games(state: tauri::State<'_, AppState>) -> CommandResult<Vec<i64>> {
+    state
+        .store
+        .lock()
+        .expect("store lock poisoned")
+        .unreviewed_games(DEFAULT_DEPTH, analysis::CRITERION)
+        .map_err(report)
+}
+
 /// A stored review, without running the engine. `None` if this game has not
 /// been reviewed at this depth under the current mistake criterion.
 #[tauri::command]
@@ -292,6 +304,7 @@ pub fn run() {
             list_games,
             get_game,
             stored_review,
+            unreviewed_games,
             review_game
         ])
         .run(tauri::generate_context!())
