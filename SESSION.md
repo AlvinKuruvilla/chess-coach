@@ -56,9 +56,9 @@ Architecture as of 2026-11-01: a Tauri desktop app with a Rust backend; see
 [docs/0002](docs/0002-tauri-desktop-app-rust-backend.md). Feature order agreed
 2026-11-01:
 
-1. **Mistakes by winning chances, not centipawns.** The 200cp threshold
-   misfires in won and lost positions. Do it before anything builds on which
-   moves count as mistakes, since every change re-invalidates stored reviews.
+1. ~~**Mistakes by winning chances, not centipawns.**~~ Done 2026-11-01; see
+   `docs/win-curve.md`. Open: the fit method did not reproduce Lichess's
+   constant on 2300+ games (0.0051 vs 0.0037), unexplained.
 2. **Review in the background after sync**, so every game has evaluations.
 3. **What-if exploration.** Drag a piece from any position; the engine scores
    the move against the best and the game move, and shows its reply as an
@@ -286,6 +286,10 @@ Keep this out of git — `tmp/` is already ignored.
 
 - **PROBLEM.md still describes the MCP-first design**; see "PROBLEM.md drift".
   ADR 0001 is marked superseded and the two MCP docs are marked historical.
+- **`docs/experiment-metric.md` still sizes the experiment at a 200cp
+  threshold** (6.7 mistakes per game, ~335 positions). The app now classifies
+  by expected score (`docs/win-curve.md`); decide which the experiment uses
+  before running it, since the counts will differ.
 - **Rust terminal detection is narrower than python-chess's.** shakmaty's
   `outcome` has no fivefold-repetition or 75-move rule, so those positions are
   searched instead of scored 0 directly (`terminal_cp` in `analysis.rs`).

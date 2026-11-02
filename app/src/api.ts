@@ -50,6 +50,9 @@ export interface Mistake {
   played: string;
   best: string;
   best_line: string[];
+  severity: "mistake" | "blunder";
+  /** Percentage points of expected score given away; what decides `severity`. */
+  chances_lost: number;
   cp_loss: number;
   fen_before: string;
   refutation: string[];
@@ -67,7 +70,7 @@ export interface Review {
   result: string;
   opening: string | null;
   depth: number;
-  threshold_cp: number;
+  criterion: string;
   mistake_count: number;
   mistakes: Mistake[];
   /** Centipawns from White's side, one per position (moves + 1). ±10000 is mate. */

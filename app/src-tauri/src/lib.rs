@@ -35,10 +35,6 @@ use crate::store::{GameDetail, GameSummary, Store};
 /// staying far past the horizon of the mistakes this is meant to find.
 const DEFAULT_DEPTH: u32 = 16;
 
-/// A move is a mistake when it throws away this much. See
-/// docs/experiment-metric.md for why 200cp and not 100 or 300.
-const DEFAULT_THRESHOLD_CP: i32 = 200;
-
 struct AppState {
     /// `std::sync::Mutex`, not tokio's: every lock is taken and released
     /// between awaits, never held across one, and queries are local and fast.
@@ -212,13 +208,12 @@ fn get_game(state: tauri::State<'_, AppState>, id: i64) -> CommandResult<GameDet
 }
 
 /// A stored review, without running the engine. `None` if this game has not
-/// been reviewed at these settings.
+/// been reviewed at this depth under the current mistake criterion.
 #[tauri::command]
 fn stored_review(
     state: tauri::State<'_, AppState>,
     id: i64,
     depth: Option<u32>,
-    threshold_cp: Option<i32>,
 ) -> CommandResult<Option<Review>> {
     let store = state.store.lock().expect("store lock poisoned");
     let Some(game) = store.game(id).map_err(report)? else {
@@ -228,7 +223,7 @@ fn stored_review(
         .review(
             &game.summary.url,
             depth.unwrap_or(DEFAULT_DEPTH),
-            threshold_cp.unwrap_or(DEFAULT_THRESHOLD_CP),
+            analysis::CRITERION,
         )
         .map_err(report)
 }
@@ -241,29 +236,26 @@ async fn review_game(
     state: tauri::State<'_, AppState>,
     id: i64,
     depth: Option<u32>,
-    threshold_cp: Option<i32>,
     on_progress: Channel<Progress>,
 ) -> CommandResult<Review> {
     let depth = depth.unwrap_or(DEFAULT_DEPTH).clamp(1, 30);
-    let threshold_cp = threshold_cp.unwrap_or(DEFAULT_THRESHOLD_CP).max(1);
     let run = async {
         let (url, pgn) = {
             let store = state.store.lock().expect("store lock poisoned");
             let game = store
                 .game(id)?
                 .ok_or_else(|| eyre!("no game with id {id}; import games first"))?;
-            if let Some(review) = store.review(&game.summary.url, depth, threshold_cp)? {
+            if let Some(review) = store.review(&game.summary.url, depth, analysis::CRITERION)? {
                 return Ok(review);
             }
             (game.summary.url, game.pgn)
         };
-        let review =
-            analysis::review_game(&pgn, &state.engine, depth, threshold_cp, |done, total| {
-                // A closed window drops the channel; the review still finishes
-                // and is stored, so the failure to report progress is ignored.
-                let _ = on_progress.send(Progress { done, total });
-            })
-            .await?;
+        let review = analysis::review_game(&pgn, &state.engine, depth, |done, total| {
+            // A closed window drops the channel; the review still finishes
+            // and is stored, so the failure to report progress is ignored.
+            let _ = on_progress.send(Progress { done, total });
+        })
+        .await?;
         state
             .store
             .lock()

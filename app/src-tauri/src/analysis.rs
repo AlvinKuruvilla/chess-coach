@@ -28,15 +28,42 @@ use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, KnownOutcome, Move, Ou
 
 use crate::uci::{Engine, Score};
 
-/// Evaluations are clamped to this before differencing. Without it a swing
-/// from +9 to +3 registers as a six-pawn mistake, when the position was
-/// winning before and after and nothing a coach would explain has happened.
-/// 15% of >=200cp swings in the corpus are of this kind
-/// (docs/experiment-metric.md).
-const EVAL_CAP_CP: i32 = 1000;
+/// Steepness of the curve from evaluation to expected score, fitted on
+/// Lichess games where both players are rated 400-999: 0.002671, 95% CI
+/// [0.002403, 0.002987], 855 games. Lichess's own constant, 0.00368208, was
+/// fitted on 2300+ rapid games and lies outside that interval: at this
+/// level an advantage converts less reliably, so the same evaluation is
+/// worth less. See docs/win-curve.md, and `scripts/fit_win_curve.py` to
+/// reproduce it. `app/src/eval.ts` draws the bar and graph with the same
+/// constant and must be kept in step.
+const WIN_CURVE_K: f64 = 0.002671;
 
-/// What a mate is worth when a mate score has to become a number. Far outside
-/// the cap, so any position with a forced mate clamps to the extreme.
+/// How much expected score a move must throw away, in percentage points,
+/// to count as a mistake and as a blunder. Lichess's thresholds
+/// (lila `modules/tree/src/main/Advice.scala` at 9934f0a: 0.2 and 0.3 on
+/// its -1..1 scale), kept as published so the classification stays
+/// comparable with theirs. Inaccuracies (5 points) are not reported.
+const MISTAKE_POINTS: f64 = 10.0;
+const BLUNDER_POINTS: f64 = 15.0;
+
+/// Names the curve and thresholds above. Stored reviews are keyed by it, so
+/// changing either makes every stored review stale and it is recomputed.
+pub const CRITERION: &str = "expected-score k=0.002671 mistake=10 blunder=15";
+
+/// A mover's expected score, 0 to 100, from an evaluation in centipawns from
+/// their own point of view.
+fn expected_score(cp: i32) -> f64 {
+    if cp >= MATE_CP {
+        return 100.0;
+    }
+    if cp <= -MATE_CP {
+        return 0.0;
+    }
+    100.0 / (1.0 + (-WIN_CURVE_K * f64::from(cp)).exp())
+}
+
+/// What a mate is worth when a mate score has to become a number. Treated as
+/// certain: an expected score of exactly 0 or 100.
 const MATE_CP: i32 = 10_000;
 
 /// Pawn-unit piece values for the material diff. The king is absent because
@@ -80,7 +107,7 @@ pub struct Cost {
     pub kind: CostKind,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Mistake {
     /// Half-moves played before this one; 0 is White's first move.
     pub ply: usize,
@@ -92,10 +119,23 @@ pub struct Mistake {
     /// The engine's line from the position before the mistake, starting with
     /// `best`: what should have happened instead.
     pub best_line: Vec<String>,
+    pub severity: Severity,
+    /// Percentage points of expected score the move gave away: the measure
+    /// `severity` is decided by.
+    pub chances_lost: f64,
+    /// The same loss in centipawns, unclamped. Kept for display; it is not
+    /// what classifies the move.
     pub cp_loss: i32,
     pub fen_before: String,
     pub refutation: Vec<String>,
     pub cost: Cost,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Severity {
+    Mistake,
+    Blunder,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -114,14 +154,15 @@ impl From<Color> for Side {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Review {
     pub white: String,
     pub black: String,
     pub result: String,
     pub opening: Option<String>,
     pub depth: u32,
-    pub threshold_cp: i32,
+    /// [`CRITERION`] at the time of the review.
+    pub criterion: String,
     pub mistake_count: usize,
     pub mistakes: Vec<Mistake>,
     /// The evaluation of every position in the game, in centipawns from
@@ -354,7 +395,6 @@ pub async fn review_game(
     pgn: &str,
     engine_path: &Path,
     depth: u32,
-    threshold_cp: i32,
     mut on_progress: impl FnMut(usize, usize),
 ) -> eyre::Result<Review> {
     let game = read_game(pgn)?;
@@ -399,16 +439,23 @@ pub async fn review_game(
     for (ply, played) in game.moves.iter().enumerate() {
         let (before, after) = (evaluations[ply], evaluations[ply + 1]);
         let mover = positions[ply].turn();
-        let clamp = |cp: i32| cp.clamp(-EVAL_CAP_CP, EVAL_CAP_CP);
-        // Centipawn loss is stated from the mover's point of view, so a White
-        // blunder and a Black blunder are the same positive number.
-        let loss = match mover {
-            Color::White => clamp(before) - clamp(after),
-            Color::Black => clamp(after) - clamp(before),
+        // Everything is stated from the mover's point of view, so a White
+        // blunder and a Black blunder are the same positive numbers.
+        let (before, after) = match mover {
+            Color::White => (before, after),
+            Color::Black => (-before, -after),
         };
-        if loss < threshold_cp {
+        // Judged by expected score, not centipawns: +12 to +6 is still
+        // winning and costs almost nothing, while 0 to -2 turns an equal
+        // game into a bad one. A centipawn threshold flags both alike.
+        let chances_lost = expected_score(before) - expected_score(after);
+        let severity = if chances_lost >= BLUNDER_POINTS {
+            Severity::Blunder
+        } else if chances_lost >= MISTAKE_POINTS {
+            Severity::Mistake
+        } else {
             continue;
-        }
+        };
 
         let refutation = &lines[ply + 1];
         mistakes.push(Mistake {
@@ -421,7 +468,9 @@ pub async fn review_game(
                 .first()
                 .map(|best| san(&positions[ply], best))
                 .unwrap_or_default(),
-            cp_loss: loss,
+            severity,
+            chances_lost: (chances_lost * 10.0).round() / 10.0,
+            cp_loss: before.saturating_sub(after),
             fen_before: fen(&positions[ply]),
             refutation: variation_san(&positions[ply + 1], refutation),
             cost: consequence_of(&positions[ply + 1], refutation),
@@ -434,7 +483,7 @@ pub async fn review_game(
         result: game.result,
         opening: game.opening,
         depth,
-        threshold_cp,
+        criterion: CRITERION.to_owned(),
         mistake_count: mistakes.len(),
         mistakes,
         evaluations,
@@ -546,6 +595,31 @@ mod tests {
     }
 
     #[test]
+    fn expected_score_is_even_at_zero_and_certain_at_mate() {
+        assert!((expected_score(0) - 50.0).abs() < 1e-9);
+        assert!((expected_score(150) + expected_score(-150) - 100.0).abs() < 1e-9);
+        assert_eq!(expected_score(MATE_CP), 100.0);
+        assert_eq!(expected_score(-MATE_CP), 0.0);
+    }
+
+    #[test]
+    fn mistakes_are_judged_by_expected_score_not_centipawns() {
+        let drop = |before: i32, after: i32| expected_score(before) - expected_score(after);
+        // An equal game turned bad: 50% to 37%.
+        assert!(drop(0, -200) >= MISTAKE_POINTS);
+        // An edge handed over, though under two pawns of centipawn loss.
+        assert!(drop(50, -140) >= MISTAKE_POINTS);
+        // Already lost; three more pawns change little: 17% to 8%.
+        assert!(drop(-600, -900) < MISTAKE_POINTS);
+        // Still winning, but at this rating +6 is lost often enough that
+        // halving +12 costs 13 points. With Lichess's 2300+ curve it would
+        // cost under 8 and pass unflagged.
+        assert!(drop(1200, 600) >= MISTAKE_POINTS);
+        // A hung queen in an equal position is a blunder.
+        assert!(drop(0, -900) >= BLUNDER_POINTS);
+    }
+
+    #[test]
     fn engine_scores_are_turned_to_whites_point_of_view() {
         assert_eq!(white_cp(Score::Cp(50), Color::White), 50);
         assert_eq!(white_cp(Score::Cp(50), Color::Black), -50);
@@ -575,7 +649,7 @@ mod tests {
         #[tokio::test]
         async fn a_black_mistake_is_attributed_to_black_with_a_positive_loss() {
             let Ok(path) = engine_path() else { return };
-            let review = review_game(SCHOLARS_MATE, &path, 8, 200, |_, _| {})
+            let review = review_game(SCHOLARS_MATE, &path, 8, |_, _| {})
                 .await
                 .expect("review runs");
             assert_eq!(review.result, "1-0");
@@ -601,7 +675,7 @@ mod tests {
         async fn progress_is_reported_once_per_position() {
             let Ok(path) = engine_path() else { return };
             let mut seen = Vec::new();
-            review_game(SCHOLARS_MATE, &path, 6, 200, |done, total| {
+            review_game(SCHOLARS_MATE, &path, 6, |done, total| {
                 seen.push((done, total))
             })
             .await
@@ -613,7 +687,7 @@ mod tests {
         #[tokio::test]
         async fn a_pgn_with_no_moves_is_rejected_at_the_boundary() {
             let Ok(path) = engine_path() else { return };
-            let err = review_game("[Event \"empty\"]\n\n*\n", &path, 6, 200, |_, _| {})
+            let err = review_game("[Event \"empty\"]\n\n*\n", &path, 6, |_, _| {})
                 .await
                 .expect_err("no moves is an error");
             assert!(err.to_string().contains("no moves"));

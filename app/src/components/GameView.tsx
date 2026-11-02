@@ -32,11 +32,15 @@ function squares(fen: string, san: string): { from: string; to: string } | null 
   }
 }
 
-// Book notation: `??` for a blunder, `?` for a mistake. The 300cp line is
-// the conventional one; anything flagged at all has already passed the
-// review's 200cp threshold.
+// Book notation: `??` for a blunder, `?` for a mistake. The backend decides
+// which, by how much expected score the move gave away.
 function mark(m: Mistake): string {
-  return m.cp_loss >= 300 ? "??" : "?";
+  return m.severity === "blunder" ? "??" : "?";
+}
+
+/** "−18%": the expected score a mistake gave away. */
+function chancesLost(m: Mistake): string {
+  return `−${Math.round(m.chances_lost)}%`;
 }
 
 // One sentence on what the refutation costs, built only from fields the
@@ -346,7 +350,7 @@ export function GameView({ id, onBack }: { id: number; onBack: () => void }) {
     const just = byPly.get(ply - 1);
     if (just && shown(just)) {
       return {
-        title: `${moveLabel(number, side, last.san)}${mark(just)}  −${(just.cp_loss / 100).toFixed(1)}`,
+        title: `${moveLabel(number, side, last.san)}${mark(just)}  ${chancesLost(just)}`,
         body: `${costSentence(just)}${just.refutation[0] ? ` The arrow shows the reply, ${just.refutation[0]}.` : ""}`,
         tone: "warn",
       };
@@ -391,7 +395,9 @@ export function GameView({ id, onBack }: { id: number; onBack: () => void }) {
               {moveLabel(m.move_number, m.side, m.played)}
               {mark(m)}
             </span>
-            <span className="loss">−{(m.cp_loss / 100).toFixed(1)}</span>
+            <span className="loss" title="Winning chances given away">
+              {chancesLost(m)}
+            </span>
           </span>
           <p>
             {m.best && (

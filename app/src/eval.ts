@@ -4,18 +4,23 @@
 export const MATE_CP = 10_000;
 
 /**
+ * Steepness of the evaluation-to-expected-score curve, fitted on Lichess
+ * games between players rated 400-999 (docs/win-curve.md). Must match
+ * `WIN_CURVE_K` in src-tauri/src/analysis.rs, which uses it to decide what
+ * counts as a mistake; the bar and graph would otherwise disagree with the
+ * review about how much a move cost.
+ */
+export const WIN_CURVE_K = 0.002671;
+
+/**
  * An evaluation as an expected share of the points, 0 to 1, for the side
- * whose point of view `cp` is from. A logistic curve, so the first two pawns
- * of advantage move the bar a lot and the tenth barely at all -- which
- * matches how much each one changes a game's likely result. The 0.004
- * steepness is chosen by eye, not fitted: one pawn reads as 60%, two as 69%,
- * five as 88%. Lichess uses a logistic of this shape with a fitted constant
- * near 0.0037; it was not checked against the source, so it is not used.
+ * whose point of view `cp` is from. A logistic curve, so the first pawns of
+ * advantage move it a lot and later ones barely at all.
  */
 export function share(cp: number): number {
   if (cp >= MATE_CP) return 1;
   if (cp <= -MATE_CP) return 0;
-  return 1 / (1 + Math.exp(-0.004 * cp));
+  return 1 / (1 + Math.exp(-WIN_CURVE_K * cp));
 }
 
 /** "+1.4", "−0.3", "Mate". `cp` is from the reader's point of view. */

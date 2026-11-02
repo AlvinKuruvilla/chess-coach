@@ -6,7 +6,8 @@
 //!   month never changes, so its row is what stops it being fetched again.
 //! - `games` -- one row per game, keyed by chess.com's game URL.
 //! - `settings` -- key/value app settings; today only the chess.com account.
-//! - `reviews` -- one row per (game, depth, threshold). A review is a pure
+//! - `reviews` -- one row per (game, depth, criterion), where the criterion
+//!   names how mistakes are classified (`analysis::CRITERION`). A review is a pure
 //!   function of the PGN and those two parameters, because Stockfish at fixed
 //!   depth with one thread and an empty hash is bit-exact (checked 2026-08-18,
 //!   see SESSION.md). So a stored review is never stale and never recomputed.
@@ -62,11 +63,11 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 CREATE TABLE IF NOT EXISTS reviews (
-    game_url     TEXT NOT NULL REFERENCES games (url),
-    depth        INTEGER NOT NULL,
-    threshold_cp INTEGER NOT NULL,
-    result       TEXT NOT NULL,
-    PRIMARY KEY (game_url, depth, threshold_cp)
+    game_url  TEXT NOT NULL REFERENCES games (url),
+    depth     INTEGER NOT NULL,
+    criterion TEXT NOT NULL,
+    result    TEXT NOT NULL,
+    PRIMARY KEY (game_url, depth, criterion)
 );
 ";
 
@@ -121,6 +122,21 @@ impl Store {
     fn init(db: Connection) -> eyre::Result<Store> {
         db.execute_batch("PRAGMA foreign_keys = ON;")
             .context("enable foreign keys")?;
+        // Reviews were first keyed by a centipawn threshold. They are a cache
+        // of deterministic engine output, so the old table is dropped rather
+        // than migrated; every game is simply reviewed again.
+        let old_shape: bool = db
+            .query_row(
+                "SELECT count(*) > 0 FROM pragma_table_info('reviews') \
+                 WHERE name = 'threshold_cp'",
+                [],
+                |row| row.get(0),
+            )
+            .context("inspect the reviews table")?;
+        if old_shape {
+            db.execute_batch("DROP TABLE reviews;")
+                .context("drop the threshold-keyed reviews table")?;
+        }
         db.execute_batch(SCHEMA).context("create the schema")?;
         Ok(Store { db })
     }
@@ -262,13 +278,13 @@ impl Store {
     /// [`Review`]. Recomputing it is cheaper than migrating stored JSON, and
     /// the result is the same apart from the changed fields, since the engine
     /// is deterministic -- so it is treated as absent.
-    pub fn review(&self, url: &str, depth: u32, threshold_cp: i32) -> eyre::Result<Option<Review>> {
+    pub fn review(&self, url: &str, depth: u32, criterion: &str) -> eyre::Result<Option<Review>> {
         let text: Option<String> = self
             .db
             .query_row(
                 "SELECT result FROM reviews \
-                 WHERE game_url = ?1 AND depth = ?2 AND threshold_cp = ?3",
-                params![url, depth, threshold_cp],
+                 WHERE game_url = ?1 AND depth = ?2 AND criterion = ?3",
+                params![url, depth, criterion],
                 |row| row.get(0),
             )
             .optional()
@@ -283,7 +299,7 @@ impl Store {
                 params![
                     url,
                     review.depth,
-                    review.threshold_cp,
+                    review.criterion,
                     serde_json::to_string(review).context("encode the review")?
                 ],
             )
@@ -372,6 +388,43 @@ mod tests {
     }
 
     #[test]
+    fn the_threshold_keyed_reviews_table_is_replaced_and_games_are_kept() {
+        // The layout databases had before reviews were keyed by criterion:
+        // today's schema with the old reviews key, and one game in it.
+        let old = SCHEMA
+            .replace("criterion TEXT NOT NULL", "threshold_cp INTEGER NOT NULL")
+            .replace(
+                "(game_url, depth, criterion)",
+                "(game_url, depth, threshold_cp)",
+            );
+        let db = Connection::open_in_memory().expect("open");
+        db.execute_batch(&old).expect("old schema");
+        db.execute_batch(
+            "INSERT INTO games VALUES ('https://www.chess.com/game/daily/1', 1, 'me', 0,
+                 'daily', 1, 'chess', 'me', 'them', 300, 300, 'win', 'resigned',
+                 '1. e4 *', NULL, NULL);
+             INSERT INTO reviews VALUES ('https://www.chess.com/game/daily/1', 16, 200, '{}');",
+        )
+        .expect("old rows");
+        let store = Store::init(db).expect("init over the old schema");
+        let columns: Vec<String> = store
+            .db
+            .prepare("SELECT name FROM pragma_table_info('reviews')")
+            .expect("prepare")
+            .query_map([], |row| row.get(0))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("read");
+        assert!(columns.contains(&"criterion".to_owned()));
+        assert!(!columns.contains(&"threshold_cp".to_owned()));
+        let games: i64 = store
+            .db
+            .query_row("SELECT count(*) FROM games", [], |row| row.get(0))
+            .expect("count");
+        assert_eq!(games, 1);
+    }
+
+    #[test]
     fn a_review_stored_under_an_older_shape_reads_as_absent() {
         let mut store = Store::in_memory().expect("store opens");
         store
@@ -381,10 +434,10 @@ mod tests {
         store
             .db
             .execute(
-                "INSERT INTO reviews VALUES (?1, 16, 200, '{\"mistakes\": []}')",
+                "INSERT INTO reviews VALUES (?1, 16, 'c', '{\"mistakes\": []}')",
                 [url],
             )
             .expect("insert an old-shape review");
-        assert!(store.review(url, 16, 200).expect("query").is_none());
+        assert!(store.review(url, 16, "c").expect("query").is_none());
     }
 }
