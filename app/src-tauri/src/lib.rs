@@ -17,6 +17,7 @@
 
 mod analysis;
 mod chesscom;
+mod explain;
 mod practice;
 mod store;
 mod uci;
@@ -240,6 +241,7 @@ fn stored_review(
             depth.unwrap_or(DEFAULT_DEPTH),
             analysis::CRITERION,
         )
+        .map(|review| review.map(explain::with_facts))
         .map_err(report)
 }
 
@@ -261,7 +263,7 @@ async fn review_game(
                 .game(id)?
                 .ok_or_else(|| eyre!("no game with id {id}; import games first"))?;
             if let Some(review) = store.review(&game.summary.url, depth, analysis::CRITERION)? {
-                return Ok(review);
+                return Ok(explain::with_facts(review));
             }
             (game.summary.url, game.pgn)
         };
@@ -276,7 +278,7 @@ async fn review_game(
             .lock()
             .expect("store lock poisoned")
             .save_review(&url, &review)?;
-        Ok(review)
+        Ok(explain::with_facts(review))
     };
     run.await.map_err(report)
 }
@@ -333,6 +335,7 @@ fn practice_queue(state: tauri::State<'_, AppState>) -> CommandResult<PracticeQu
         let mut fresh = Vec::new();
         let mut waiting = 0;
         for (game, review) in store.reviewed_games(DEFAULT_DEPTH, analysis::CRITERION)? {
+            let review = explain::with_facts(review);
             let you = match game.you {
                 Some("white") => Side::White,
                 Some("black") => Side::Black,

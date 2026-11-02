@@ -43,6 +43,44 @@ export interface ImportResult {
 
 export type CostKind = "material" | "mate" | "trade_neutral" | "positional";
 
+// Why a refutation works; mirrors `Fact` in src-tauri/src/explain.rs. Every
+// `at_ply` indexes the refutation line it came with: 0 is the opponent's
+// reply, even plies are the opponent's moves, odd plies yours.
+
+export interface Unit {
+  role: string;
+  square: string;
+}
+
+export type LooseCause =
+  | { type: "moved_there" }
+  | { type: "ignored" }
+  | { type: "defender_moved"; from: string; to: string }
+  | { type: "line_opened"; from: string }
+  | { type: "attacker_added"; at_ply: number; by: Unit }
+  | { type: "defender_pinned"; at_ply: number; pinned: Unit; by: Unit }
+  | { type: "defenders_lost"; at_ply: number; moved: Unit; from: string; lost: Unit[] }
+  | { type: "arrived_loose"; at_ply: number };
+
+export type Fact =
+  | {
+      kind: "loose";
+      /** The capture that wins the piece. */
+      at_ply: number;
+      piece: Unit;
+      attackers: Unit[];
+      defenders: Unit[];
+      wins: number;
+      cause: LooseCause;
+    }
+  | {
+      kind: "fork";
+      at_ply: number;
+      by: Unit;
+      targets: { role: string; square: string; check: boolean }[];
+    }
+  | { kind: "pin"; at_ply: number; by: Unit; pinned: Unit; behind: Unit };
+
 export interface Mistake {
   ply: number;
   move_number: number;
@@ -62,6 +100,7 @@ export interface Mistake {
     mate_in: number | null;
     kind: CostKind;
   };
+  facts: Fact[];
 }
 
 export interface Review {
@@ -101,6 +140,7 @@ export interface MoveJudgement {
   expected_after: number;
   refutation: string[];
   cost: Mistake["cost"];
+  facts: Fact[];
 }
 
 export interface DrillVerdict {

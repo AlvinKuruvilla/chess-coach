@@ -26,6 +26,7 @@ use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
 use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, KnownOutcome, Move, Outcome, Position};
 
+use crate::explain::{self, Fact};
 use crate::uci::{Engine, Score};
 
 /// Steepness of the curve from evaluation to expected score, fitted on
@@ -129,6 +130,11 @@ pub struct Mistake {
     pub fen_before: String,
     pub refutation: Vec<String>,
     pub cost: Cost,
+    /// Why the refutation works ([`crate::explain`]). Worked out from the
+    /// fields above whenever a review is read, so improving a detector
+    /// never makes a stored review stale; what is stored is ignored.
+    #[serde(default)]
+    pub facts: Vec<Fact>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -468,6 +474,8 @@ pub async fn review_game(
                 .first()
                 .map(|best| san(&positions[ply], best))
                 .unwrap_or_default(),
+            // Filled in when the review is read; see `explain::with_facts`.
+            facts: Vec::new(),
             severity,
             chances_lost: (chances_lost * 10.0).round() / 10.0,
             cp_loss: before.saturating_sub(after),
@@ -502,6 +510,8 @@ pub struct MoveJudgement {
     /// The engine's best reply line to the move.
     pub refutation: Vec<String>,
     pub cost: Cost,
+    /// Why the reply line works against the move; see [`crate::explain`].
+    pub facts: Vec<Fact>,
 }
 
 /// Judge `uci` played from `fen`.
@@ -548,12 +558,20 @@ pub async fn judge_move(
         Color::White => white,
         Color::Black => -white,
     };
+    let cost = consequence_of(&after, &pv);
+    // As for a review: a mate needs no further explanation.
+    let facts = if cost.kind == CostKind::Mate {
+        Vec::new()
+    } else {
+        explain::explain(&before, m, &pv)
+    };
     Ok(MoveJudgement {
         san: san_text,
         cp_after,
         expected_after: expected_score(cp_after),
         refutation: variation_san(&after, &pv),
-        cost: consequence_of(&after, &pv),
+        cost,
+        facts,
     })
 }
 

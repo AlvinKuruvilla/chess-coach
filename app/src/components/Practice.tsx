@@ -2,7 +2,7 @@ import { Chess } from "chess.js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { api, type Drill, type DrillVerdict, type Grade, type PracticeQueue } from "../api";
-import { costSentence, mark, moveLabel } from "../describe";
+import { explanation, mark, moveLabel } from "../describe";
 import { Board, type Arrow } from "./Board";
 
 /**
@@ -184,11 +184,10 @@ export function Practice() {
               <h2>
                 {miss.judgement.san} gives away {Math.round(miss.chances_lost)}%.
               </h2>
-              <p>
-                {costSentence(miss.judgement)}
-                {miss.judgement.refutation[0] &&
-                  ` The answer to it is ${miss.judgement.refutation[0]}.`}
-              </p>
+              {/* Why the tried move fails, from the same detectors as the
+                  game's mistakes. It names the punishing reply, not the
+                  answer to the position, so the retry is still yours. */}
+              <p>{explanation(miss.judgement, miss.judgement.san, drill.you, drill.you).join(" ")}</p>
               <p className="hint">
                 Before you move again: what are your checks, captures and threats? And
                 your opponent's, after your move?
@@ -234,7 +233,7 @@ export function Practice() {
                   {moveLabel(moveNumber, m.side, m.played)}
                   {mark(m)}
                 </strong>
-                . {costSentence(m)}
+                . {explanation(m, m.played, m.side, drill.you).join(" ")}
               </p>
               {m.refutation.length > 0 && (
                 <p className="line">{m.refutation.slice(0, 6).join(" ")}</p>

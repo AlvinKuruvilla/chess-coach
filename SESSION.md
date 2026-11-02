@@ -74,10 +74,13 @@ Architecture as of 2026-11-01: a Tauri desktop app with a Rust backend; see
 4. **What-if exploration** -- the trainer's judging without the retry, from
    any position in a finished game. Needs a persistent engine and a
    variation tree in the playback state.
-5. **Why the reply works.** Detectors over the refutation for a loose piece,
-   fork, pin, overloaded defender, back rank -- tier 2 in
-   `docs/experiment-metric.md`. They make the trainer's "why" real; until
-   then it is the cost and the refutation line only.
+5. ~~**Why the reply works.**~~ Done 2026-11-02 (`explain.rs`): loose
+   piece (with cause), fork, pin, all from legal-move exchanges along the
+   whole refutation line. All 24 drillable mistakes explained and pinned in
+   `tests/fixtures/explain-cases.json`. Open: in two of them (fixture cases
+   1 and 2, the a4/b5 moves) the material is won 3-6 moves into the line,
+   so the explanation is true but loosely tied to the move itself -- it
+   says how the pawn on e3 is lost, not why a4 was a waste of time.
 6. **LLM coaching over those facts**, never over the raw board. Check it by
    counting false claims over the reviewed games before trusting it.
 7. **Practice games with coach mode**: play a weakened engine, and the

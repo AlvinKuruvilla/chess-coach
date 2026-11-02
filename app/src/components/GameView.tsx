@@ -11,7 +11,7 @@ import {
   type Review,
   type Side,
 } from "../api";
-import { chancesLost, costSentence, formatEval, mark, moveLabel } from "../describe";
+import { chancesLost, explanation, formatEval, mark, moveLabel } from "../describe";
 import { Board, type Arrow } from "./Board";
 import { EvalBar } from "./EvalBar";
 import { EvalGraph } from "./EvalGraph";
@@ -316,7 +316,9 @@ export function GameView({ id, onBack }: { id: number; onBack: () => void }) {
     if (just && shown(just)) {
       return {
         title: `${moveLabel(number, side, last.san)}${mark(just)}  ${chancesLost(just)}`,
-        body: `${costSentence(just)}${just.refutation[0] ? ` The arrow shows the reply, ${just.refutation[0]}.` : ""}`,
+        // The first sentence only: the full explanation is in the note
+        // beside the move list, and the caption has room for one line.
+        body: `${explanation(just, just.played, just.side, game.you)[0]}${just.refutation[0] ? ` The arrow shows ${just.refutation[0]}.` : ""}`,
         tone: "warn",
       };
     }
@@ -370,7 +372,7 @@ export function GameView({ id, onBack }: { id: number; onBack: () => void }) {
                 Better was <span className="better">{m.best}</span>.{" "}
               </>
             )}
-            {costSentence(m)}
+            {explanation(m, m.played, m.side, game.you).join(" ")}
           </p>
         </button>
         <div className="note-actions">
