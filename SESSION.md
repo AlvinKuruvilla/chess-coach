@@ -59,18 +59,33 @@ Architecture as of 2026-11-01: a Tauri desktop app with a Rust backend; see
 1. ~~**Mistakes by winning chances, not centipawns.**~~ Done 2026-11-01; see
    `docs/win-curve.md`. Open: the fit method did not reproduce Lichess's
    constant on 2300+ games (0.0051 vs 0.0037), unexplained.
-2. **Review in the background after sync**, so every game has evaluations.
-3. **What-if exploration.** Drag a piece from any position; the engine scores
-   the move against the best and the game move, and shows its reply as an
-   arrow without playing it. Needs a persistent engine and a variation tree
-   in the playback state (today it holds one branch).
-4. **Why the reply works.** Detectors over the refutation for a loose piece,
+2. **Review in the background after sync**, so every game has evaluations
+   and the trainer has every mistake to draw on.
+3. **The "find the move" trainer, fed by your own mistakes.** Decided
+   2026-11-01 after research (summarised in the session; key sources: the
+   2026 Psychological Science study of 44,213 chess.com players, study-type
+   activities 3.61x more efficient than play; Lichess "Learn from your
+   mistakes"). Show the position before a mistake, you move, the engine
+   judges it by expected score lost; a miss hides the answer and prompts
+   checks/captures/threats for one retry, then reveals the best move, the
+   refutation and the cost. Only `material` and `mate` mistakes, where a
+   best move is clear. Missed positions come back on a spaced schedule.
+4. **What-if exploration** -- the trainer's judging without the retry, from
+   any position in a finished game. Needs a persistent engine and a
+   variation tree in the playback state.
+5. **Why the reply works.** Detectors over the refutation for a loose piece,
    fork, pin, overloaded defender, back rank -- tier 2 in
-   `docs/experiment-metric.md`. They explain what-if moves too.
-5. **LLM coaching over those facts**, never over the raw board. Check it by
+   `docs/experiment-metric.md`. They make the trainer's "why" real; until
+   then it is the cost and the refutation line only.
+6. **LLM coaching over those facts**, never over the raw board. Check it by
    counting false claims over the reviewed games before trusting it.
-6. **Practice from your own mistakes**, using only material and mate kinds.
-7. **Patterns across games.** Needs more games than the 8 rated ones so far.
+7. **Practice games with coach mode**: play a weakened engine, and the
+   trainer steps in before a mistake instead of after. Opponent: Stockfish
+   first (`UCI_Elo` floors at 1320 in Stockfish 19; below that only `Skill
+   Level`, which blunders unlike a human). Maia-2 is human-like but needs
+   Python/PyTorch and buckets every rating under 1100 together
+   (CSSLab/maia2 `utils.py` at 67bee6c).
+8. **Patterns across games.** Needs more games than the 8 rated ones so far.
 
 Later, agreed 2026-11-01:
 
