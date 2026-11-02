@@ -72,6 +72,21 @@ Architecture as of 2026-11-01: a Tauri desktop app with a Rust backend; see
 6. **Practice from your own mistakes**, using only material and mate kinds.
 7. **Patterns across games.** Needs more games than the 8 rated ones so far.
 
+Later, agreed 2026-11-01:
+
+- **In-progress daily games, listed only.** `GET /pub/player/{user}/games`
+  returns ongoing daily games with PGN, FEN, whose turn and `move_by`. Show
+  opponent, whose move, time left, and a link to chess.com -- no board
+  analysis. Live games in progress are not in the public API at all.
+- **Fair-play guard.** The backend refuses to analyse any position from a game
+  still in progress. Engine help on an ongoing game is cheating under
+  chess.com's rules, daily included, whoever sends the move.
+- **Review on finish.** When an in-progress game ends, review it at once so
+  it is ready on next open. Optionally precompute while it runs and reveal
+  only after chess.com marks it finished -- only if reviews feel slow.
+- **GitHub Actions on Node 20.** `actions/checkout@v4` and `setup-node@v4`
+  draw a deprecation warning; bump to their current majors.
+
 Claude's standing role on this project, as of 2026-08-30: build it and show it
 running.
 
