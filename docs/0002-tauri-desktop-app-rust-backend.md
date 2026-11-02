@@ -72,8 +72,9 @@ Three things changed the same day.
   insufficient material but not fivefold repetition or the 75-move rule, which
   python-chess counted. Those positions are now searched; the engine, given the
   history, scores them as draws.
-- **chessground is GPL-3.0** and the repository is MIT. Fine while the app is
-  private; distributing a build puts it under the GPL.
+- **chessground is GPL-3.0-or-later**, so the repository is too (changed from MIT
+  when it went public on 2026-11-01). An MIT board such as cm-chessboard would
+  have kept it permissive, at the cost of the board rewrite.
 - **macOS only, in practice.** Nothing is platform-specific in the code, but the
   Stockfish lookup knows Homebrew's paths, CI runs on macOS, and no other platform
   has been tried.

@@ -31,5 +31,9 @@ cargo clippy --all-targets
 cd .. && npx tsc --noEmit
 ```
 
-The board is [chessground](https://github.com/lichess-org/chessground), which
-is GPL-3.0; distributing a build puts it under the GPL.
+## Licence
+
+GPL-3.0-or-later; see `LICENSE`. The board is
+[chessground](https://github.com/lichess-org/chessground), which is
+GPL-3.0-or-later, so any build is GPL regardless, and the source carries the
+same licence.

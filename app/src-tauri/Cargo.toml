@@ -3,6 +3,7 @@ name = "chess-coach"
 version = "0.1.0"
 description = "Explains why each mistake in my chess games was a mistake."
 authors = ["Alvin Kuruvilla"]
+license = "GPL-3.0-or-later"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

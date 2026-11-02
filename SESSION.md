@@ -302,7 +302,5 @@ Keep this out of git — `tmp/` is already ignored.
   account would skip months the first one fetched.
 - **Frontend types are hand-copied** from the Rust serde types
   (`app/src/api.ts`). `ts-rs` or `tauri-specta` could generate them.
-- **chessground is GPL-3.0**, chosen knowingly; the repo LICENSE is MIT. Fine
-  while private; decide before publishing a build.
 - **`React.StrictMode` runs the launch sync twice in development.** Harmless
   (imports are idempotent) but makes two requests to chess.com.
